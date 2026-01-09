@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,7 +45,6 @@ import com.example.fittrack.ui.theme.Main40
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 
-
 enum class Destination(
     val route: String,
     val label: String,
@@ -56,19 +56,28 @@ enum class Destination(
     TIMER("timer", "Timer", Icons.Filled.AccessTime, "Timer")
 }
 class MainActivity : ComponentActivity() {
+
+    private val recordViewModel: RecordViewModel by viewModels { RecordViewModelFactory(application) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             FitTrackTheme {
-                MainScreen(modifier = Modifier)
+                BottomNavigationBar(
+                    modifier = Modifier.fillMaxSize(),
+                    recordViewModel = recordViewModel
+                )
+                // BUG FIX: Pass recordViewModel to MainScreen
+                MainScreen(modifier = Modifier, recordViewModel = recordViewModel)
             }
         }
     }
 }
 
+// BUG FIX: MainScreen now accepts recordViewModel
 @Composable
-fun MainScreen(modifier: Modifier) {
+fun MainScreen(modifier: Modifier, recordViewModel: RecordViewModel) {
     val navController = rememberNavController()
     val startDestination = Destination.TODO
     var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
@@ -100,7 +109,9 @@ fun MainScreen(modifier: Modifier) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+                .consumeWindowInsets(innerPadding),
+            // BUG FIX: Pass recordViewModel to AppNavHost
+            recordViewModel = recordViewModel
         )
     }
 }
@@ -134,16 +145,6 @@ fun Header() {
 }
 
 @Composable
-fun RecordScreen(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Record Screen")
-    }
-}
-
-@Composable
 fun TimerScreen(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
@@ -157,7 +158,8 @@ fun TimerScreen(modifier: Modifier = Modifier) {
 fun AppNavHost(
     navController: NavHostController,
     startDestination: Destination,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    recordViewModel: RecordViewModel
 ) {
     NavHost(
         navController,
@@ -168,7 +170,7 @@ fun AppNavHost(
             composable(destination.route) {
                 when (destination) {
                     Destination.TODO -> TodoScreen()
-                    Destination.RECORD -> RecordScreen()
+                    Destination.RECORD -> RecordScreen(viewModel = recordViewModel)
                     Destination.TIMER -> TimerScreen()
                 }
             }
@@ -176,9 +178,11 @@ fun AppNavHost(
     }
 }
 
-@Preview
 @Composable
-fun BottomNavigationBar(modifier: Modifier = Modifier) {
+fun BottomNavigationBar(
+    modifier: Modifier = Modifier,
+    recordViewModel: RecordViewModel
+) {
     val navController = rememberNavController()
     val startDestination = Destination.TODO
     var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
@@ -206,6 +210,11 @@ fun BottomNavigationBar(modifier: Modifier = Modifier) {
             }
         }
     ) { contentPadding ->
-        AppNavHost(navController, startDestination, modifier = Modifier.padding(contentPadding))
+        AppNavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = Modifier.padding(contentPadding),
+            recordViewModel = recordViewModel
+        )
     }
 }
