@@ -68,13 +68,16 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     recordViewModel = recordViewModel
                 )
+                // BUG FIX: Pass recordViewModel to MainScreen
+                MainScreen(modifier = Modifier, recordViewModel = recordViewModel)
             }
         }
     }
 }
 
+// BUG FIX: MainScreen now accepts recordViewModel
 @Composable
-fun MainScreen(modifier: Modifier) {
+fun MainScreen(modifier: Modifier, recordViewModel: RecordViewModel) {
     val navController = rememberNavController()
     val startDestination = Destination.TODO
     var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
@@ -106,7 +109,9 @@ fun MainScreen(modifier: Modifier) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+                .consumeWindowInsets(innerPadding),
+            // BUG FIX: Pass recordViewModel to AppNavHost
+            recordViewModel = recordViewModel
         )
     }
 }
