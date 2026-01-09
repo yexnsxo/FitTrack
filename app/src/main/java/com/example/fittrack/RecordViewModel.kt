@@ -11,29 +11,36 @@ import com.example.fittrack.data.PhotoDatabase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 class RecordViewModel(application: Application) : AndroidViewModel(application) {
 
     private val photoDao = PhotoDatabase.getDatabase(application).photoDao()
 
-    // 1. Private MutableStateFlow for internal updates
     private val _photos = MutableStateFlow<List<Photo>>(emptyList())
-    // 2. Public read-only StateFlow for the UI
     val photos: StateFlow<List<Photo>> = _photos.asStateFlow()
 
-    // 3. Load data when ViewModel is created
+    private val _photoDates = MutableStateFlow<List<LocalDate>>(emptyList())
+    val photoDates: StateFlow<List<LocalDate>> = _photoDates.asStateFlow()
+
     init {
-        viewModelScope.launch {
-            photoDao.getAllPhotos().collect { photoList ->
-                _photos.value = photoList
+        photoDao.getAllPhotos().onEach { photoList ->
+            _photos.value = photoList
+            _photoDates.value = photoList.map {
+                Instant.ofEpochMilli(it.createdAt).atZone(ZoneId.systemDefault()).toLocalDate()
             }
-        }
+        }.launchIn(viewModelScope)
     }
 
     fun addPhoto(uri: Uri) {
         viewModelScope.launch {
-            photoDao.insert(Photo(uri = uri.toString()))
+            // Add current time when inserting a new photo
+            photoDao.insert(Photo(uri = uri.toString(), createdAt = System.currentTimeMillis()))
         }
     }
 }

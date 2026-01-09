@@ -14,7 +14,8 @@ import kotlinx.coroutines.flow.Flow
 @Entity(tableName = "photos")
 data class Photo(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val uri: String
+    val uri: String,
+    val createdAt: Long // Add this field back
 )
 
 @Dao
@@ -26,7 +27,8 @@ interface PhotoDao {
     fun getAllPhotos(): Flow<List<Photo>>
 }
 
-@Database(entities = [Photo::class], version = 1, exportSchema = false)
+// Update database version to 2
+@Database(entities = [Photo::class], version = 2, exportSchema = false)
 abstract class PhotoDatabase : RoomDatabase() {
     abstract fun photoDao(): PhotoDao
 
@@ -40,7 +42,10 @@ abstract class PhotoDatabase : RoomDatabase() {
                     context.applicationContext,
                     PhotoDatabase::class.java,
                     "photo_database"
-                ).build()
+                )
+                // Add this line to handle all migration errors automatically
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }
