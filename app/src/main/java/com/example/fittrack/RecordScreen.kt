@@ -26,6 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -106,6 +108,10 @@ fun RecordScreen(
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
             RecordCalendar(photoDates = photoDates)
+
+            // 새로 추가된 운동 현황판
+            WorkoutStats(photoDates = photoDates)
+
             val configuration = LocalConfiguration.current
             val screenWidth = configuration.screenWidthDp.dp
             val spacing = 8.dp
@@ -166,6 +172,53 @@ fun RecordScreen(
 }
 
 @Composable
+fun WorkoutStats(photoDates: List<LocalDate>) {
+    // 이번 달 운동일 계산
+    val cal = Calendar.getInstance()
+    val currentYearMonth = YearMonth.of(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
+    // BUG FIX: Count distinct days, not all entries
+    val monthlyWorkoutDays = photoDates.distinct().count { it.year == currentYearMonth.year && it.month == currentYearMonth.month }
+
+    // 연속 운동일수 계산
+    val sortedUniqueDates = photoDates.distinct().sortedDescending()
+    var currentStreak = 0
+    if (sortedUniqueDates.isNotEmpty()) {
+        val today = LocalDate.of(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH))
+        val latestWorkout = sortedUniqueDates.first()
+
+        // 오늘 또는 어제 운동을 했을 경우에만 연속 운동으로 인정
+        if (latestWorkout == today || latestWorkout == today.minusDays(1)) {
+            var streakDate = latestWorkout
+            for (date in sortedUniqueDates) {
+                if (date == streakDate) {
+                    currentStreak++
+                    streakDate = streakDate.minusDays(1)
+                } else {
+                    // 연속이 끊기는 순간 종료
+                    break
+                }
+            }
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp, horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceAround
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = "이번 달 운동일", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "$monthlyWorkoutDays 일", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = "연속 운동", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "$currentStreak 일", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
 fun Day(day: CalendarDay, isMarked: Boolean) {
     Box(
         modifier = Modifier
@@ -210,14 +263,12 @@ fun RecordCalendar(
             Day(day, isMarked)
         },
         monthHeader = { month ->
-            // FINAL FIX: Pass the list of CalendarDay from the first week of the month
             MonthHeader(daysOfWeek = month.weekDays.first(), month = month.yearMonth.toString())
         }
     )
 }
 
 @Composable
-// FINAL FIX: The parameter type is now List<CalendarDay>
 fun MonthHeader(daysOfWeek: List<CalendarDay>, month: String) {
     Column {
         Text(
@@ -227,12 +278,10 @@ fun MonthHeader(daysOfWeek: List<CalendarDay>, month: String) {
         )
         Row(modifier = Modifier.fillMaxWidth()) {
             val formatter = remember { DateTimeFormatter.ofPattern("E") }
-            // Iterate over the list of CalendarDay
             for (day in daysOfWeek) {
                 Text(
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
-                    // FINAL FIX: Call format on day.date which is a LocalDate
                     text = day.date.format(formatter),
                 )
             }
