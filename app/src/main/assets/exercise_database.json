@@ -1,0 +1,128 @@
+[
+  {
+    "id": "ex1",
+    "name": "푸시업",
+    "category": "strength",
+    "sets": 3,
+    "calories": 150,
+    "difficulty": "beginner",
+    "description": "가슴과 팔 근력 강화"
+  },
+  {
+    "id": "ex2",
+    "name": "풀업",
+    "category": "strength",
+    "sets": 3,
+    "calories": 180,
+    "difficulty": "advanced",
+    "description": "등과 팔 근력 강화"
+  },
+  {
+    "id": "ex3",
+    "name": "스쿼트",
+    "category": "strength",
+    "sets": 4,
+    "calories": 200,
+    "difficulty": "beginner",
+    "description": "하체 근력 강화"
+  },
+  {
+    "id": "ex4",
+    "name": "데드리프트",
+    "category": "strength",
+    "sets": 3,
+    "calories": 220,
+    "difficulty": "advanced",
+    "description": "전신 근력 강화"
+  },
+  {
+    "id": "ex5",
+    "name": "벤치프레스",
+    "category": "strength",
+    "sets": 4,
+    "calories": 190,
+    "difficulty": "intermediate",
+    "description": "가슴 근력 강화"
+  },
+  {
+    "id": "ex6",
+    "name": "플랭크",
+    "category": "strength",
+    "sets": 3,
+    "calories": 100,
+    "difficulty": "beginner",
+    "description": "코어 근력 강화"
+  },
+  {
+    "id": "ex7",
+    "name": "러닝",
+    "category": "cardio",
+    "duration": 30,
+    "calories": 300,
+    "difficulty": "beginner",
+    "description": "유산소 지구력 향상"
+  },
+  {
+    "id": "ex8",
+    "name": "사이클",
+    "category": "cardio",
+    "duration": 40,
+    "calories": 350,
+    "difficulty": "beginner",
+    "description": "하체 지구력 향상"
+  },
+  {
+    "id": "ex9",
+    "name": "수영",
+    "category": "cardio",
+    "duration": 30,
+    "calories": 400,
+    "difficulty": "intermediate",
+    "description": "전신 유산소 운동"
+  },
+  {
+    "id": "ex10",
+    "name": "점프 로프",
+    "category": "cardio",
+    "duration": 15,
+    "calories": 200,
+    "difficulty": "intermediate",
+    "description": "심폐 지구력 향상"
+  },
+  {
+    "id": "ex11",
+    "name": "버피 테스트",
+    "category": "cardio",
+    "duration": 20,
+    "calories": 250,
+    "difficulty": "advanced",
+    "description": "전신 고강도 운동"
+  },
+  {
+    "id": "ex12",
+    "name": "스트레칭",
+    "category": "flexibility",
+    "duration": 15,
+    "calories": 50,
+    "difficulty": "beginner",
+    "description": "전신 유연성 향상"
+  },
+  {
+    "id": "ex13",
+    "name": "요가",
+    "category": "flexibility",
+    "duration": 30,
+    "calories": 120,
+    "difficulty": "beginner",
+    "description": "심신 안정 및 유연성"
+  },
+  {
+    "id": "ex14",
+    "name": "필라테스",
+    "category": "flexibility",
+    "duration": 40,
+    "calories": 150,
+    "difficulty": "intermediate",
+    "description": "코어 강화 및 유연성"
+  }
+]
