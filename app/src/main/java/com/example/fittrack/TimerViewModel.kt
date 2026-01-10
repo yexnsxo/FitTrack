@@ -16,11 +16,11 @@ class TimerViewModel : ViewModel() {
     val isWorkoutStarted: StateFlow<Boolean> = _isWorkoutStarted.asStateFlow()
 
     // 휴식 타이머 상태
-    private val _totalTime = MutableStateFlow(60L) // 총 휴식 시간 (초)
-    val totalTime: StateFlow<Long> = _totalTime.asStateFlow()
+    private val _totalTime = MutableStateFlow(60) // 총 휴식 시간 (초)
+    val totalTime: StateFlow<Int> = _totalTime.asStateFlow()
 
-    private val _remainingTime = MutableStateFlow(60L) // 남은 휴식 시간
-    val remainingTime: StateFlow<Long> = _remainingTime.asStateFlow()
+    private val _remainingTime = MutableStateFlow(60) // 남은 휴식 시간
+    val remainingTime: StateFlow<Int> = _remainingTime.asStateFlow()
 
     private val _isTimerRunning = MutableStateFlow(false)
     val isTimerRunning: StateFlow<Boolean> = _isTimerRunning.asStateFlow()
@@ -34,22 +34,18 @@ class TimerViewModel : ViewModel() {
     private val _currentSet = MutableStateFlow(1)
     val currentSet: StateFlow<Int> = _currentSet.asStateFlow()
 
-    private val _reps = MutableStateFlow(0)
-    val reps: StateFlow<Int> = _reps.asStateFlow()
-
     private val _setReps = MutableStateFlow<List<Int>>(listOf())
     val setReps: StateFlow<List<Int>> = _setReps.asStateFlow()
 
     init {
-        _setReps.value = List(_totalSets.value) { 0 }
-        _reps.value = _setReps.value.getOrElse(0) { 0 }
+        _setReps.value = List(_totalSets.value) { 10 }
     }
 
     fun startWorkout() {
         _isWorkoutStarted.value = true
     }
 
-    fun setRestTime(seconds: Long) {
+    fun setRestTime(seconds: Int) {
         if (!isTimerRunning.value) {
             _totalTime.value = seconds
             _remainingTime.value = seconds
@@ -59,7 +55,6 @@ class TimerViewModel : ViewModel() {
     private fun advanceToNextSet() {
         if (_currentSet.value < _totalSets.value) {
             _currentSet.value++
-            _reps.value = _setReps.value.getOrElse(_currentSet.value - 1) { 0 }
         }
     }
 
@@ -88,7 +83,7 @@ class TimerViewModel : ViewModel() {
         if (count > 0) {
             _totalSets.value = count
             val currentReps = _setReps.value
-            _setReps.value = List(count) { index -> currentReps.getOrNull(index) ?: 0 }
+            _setReps.value = List(count) { index -> currentReps.getOrNull(index) ?: 10 }
             if (_currentSet.value > count) {
                 _currentSet.value = count
             }
@@ -96,14 +91,6 @@ class TimerViewModel : ViewModel() {
     }
 
     fun finishSet() {
-        if (_currentSet.value <= _totalSets.value) {
-            val updatedReps = _setReps.value.toMutableList()
-            if (_currentSet.value - 1 < updatedReps.size) {
-                updatedReps[_currentSet.value - 1] = _reps.value
-                _setReps.value = updatedReps
-            }
-        }
-
         if (_currentSet.value < _totalSets.value) {
             advanceToNextSet()
             startRest()
@@ -119,8 +106,7 @@ class TimerViewModel : ViewModel() {
         _isWorkoutStarted.value = false
         _remainingTime.value = _totalTime.value
         _currentSet.value = 1
-        _reps.value = 0
-        _setReps.value = List(_totalSets.value) { 0 }
+        _setReps.value = List(_totalSets.value) { 10 }
     }
 
     fun setRepsForSet(set: Int, reps: Int) {
@@ -128,9 +114,6 @@ class TimerViewModel : ViewModel() {
             val updatedReps = _setReps.value.toMutableList()
             updatedReps[set - 1] = reps
             _setReps.value = updatedReps
-            if (set == _currentSet.value) {
-                _reps.value = reps
-            }
         }
     }
 
@@ -144,11 +127,10 @@ class TimerViewModel : ViewModel() {
             val updatedReps = _setReps.value.toMutableList()
             for (i in (set - 1) until _totalSets.value) {
                 if (i < updatedReps.size) {
-                    updatedReps[i] = 0
+                    updatedReps[i] = 10
                 }
             }
             _setReps.value = updatedReps
-            _reps.value = _setReps.value.getOrElse(set - 1) { 0 }
         }
     }
 }
