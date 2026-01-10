@@ -1,13 +1,7 @@
 package com.example.fittrack
 
-import android.Manifest
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.os.Environment
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,211 +12,168 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.fittrack.data.TodayExerciseEntity
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
-import java.io.File
-import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 
 @Composable
-fun RecordScreen(
-    modifier: Modifier = Modifier,
-    viewModel: RecordViewModel
-) {
-    val context = LocalContext.current
-    val photos by viewModel.photos.collectAsState()
-    val photoDates by viewModel.photoDates.collectAsState()
-    var showDialog by remember { mutableStateOf(false) }
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
+fun RecordScreen(modifier: Modifier = Modifier, viewModel: RecordViewModel) {
+    val showCalendar by viewModel.showCalendar.collectAsState()
 
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) {
-            imageUri?.let { viewModel.addPhoto(it) }
-        }
-    }
+    Scaffold {
+        paddingValues ->
+        Column(modifier = Modifier.padding(paddingValues)) {
+            TabRow(selectedTabIndex = if (showCalendar) 0 else 1) {
+                Tab(selected = showCalendar, onClick = { viewModel.setShowCalendar(true) }, text = { Text("달력") })
+                Tab(selected = !showCalendar, onClick = { viewModel.setShowCalendar(false) }, text = { Text("전체 사진") })
+            }
 
-    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            viewModel.addPhoto(it)
-        }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) {
-            val newImageFile = createImageFile(context)
-            val newImageUri = FileProvider.getUriForFile(context, "com.example.fittrack.provider", newImageFile)
-            imageUri = newImageUri
-            cameraLauncher.launch(newImageUri)
-        } else {
-            // Handle permission denial
-        }
-    }
-
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Photo")
+            if (showCalendar) {
+                CalendarView(viewModel = viewModel)
+            } else {
+                AllPhotosView(viewModel = viewModel)
             }
         }
-    ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues)) {
-            RecordCalendar(photoDates = photoDates)
+    }
+}
 
-            // 새로 추가된 운동 현황판
-            WorkoutStats(photoDates = photoDates)
+@Composable
+fun CalendarView(viewModel: RecordViewModel) {
+    val photos by viewModel.photosForSelectedDate.collectAsState()
+    val markedDates by viewModel.markedDates.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val exercises by viewModel.exercisesForSelectedDate.collectAsState()
 
-            val configuration = LocalConfiguration.current
-            val screenWidth = configuration.screenWidthDp.dp
-            val spacing = 8.dp
-            val imageSize = (screenWidth - 32.dp - (spacing * 3)) / 4
+    Column {
+        RecordCalendar(markedDates = markedDates, onDateSelected = { date -> viewModel.onDateSelected(date) })
 
-            LazyColumn(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(spacing)
-            ) {
-                items(photos.chunked(4)) { rowPhotos ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
-                        rowPhotos.forEach { photo ->
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(photo.uri.toUri())
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.size(imageSize)
-                            )
-                        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            )
+            val photo = photos.firstOrNull()
+            if (photo != null) {
+                Button(onClick = { viewModel.deletePhoto(photo) }) {
+                    Text("사진 삭제")
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            item {
+                ExerciseListView(exercises = exercises)
+            }
+
+            val photo = photos.firstOrNull()
+            if (photo != null && photo.uri.isNotEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 2)
+
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(photo.uri.toUri())
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(imageSize)
+                        )
                     }
                 }
             }
+        }
+    }
+}
 
-            if (showDialog) {
-                AlertDialog(
-                    onDismissRequest = { showDialog = false },
-                    title = { Text("Choose an option") },
-                    text = { Text("Would you like to take a picture or choose from the gallery?") },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                showDialog = false
-                                permissionLauncher.launch(Manifest.permission.CAMERA)
-                            }
-                        ) {
-                            Text("Camera")
-                        }
-                    },
-                    dismissButton = {
-                        Button(
-                            onClick = {
-                                showDialog = false
-                                galleryLauncher.launch("image/*")
-                            }
-                        ) {
-                            Text("Gallery")
-                        }
-                    }
+@Composable
+fun AllPhotosView(viewModel: RecordViewModel) {
+    val allPhotos by viewModel.allPhotos.collectAsState()
+
+    if (allPhotos.isEmpty()) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = "저장된 사진이 없습니다.")
+        }
+    } else {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            items(allPhotos) { photo ->
+                val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 3)
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(photo.uri.toUri())
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(imageSize)
                 )
             }
         }
     }
 }
 
-@Composable
-fun WorkoutStats(photoDates: List<LocalDate>) {
-    // 이번 달 운동일 계산
-    val cal = Calendar.getInstance()
-    val currentYearMonth = YearMonth.of(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
-    // BUG FIX: Count distinct days, not all entries
-    val monthlyWorkoutDays = photoDates.distinct().count { it.year == currentYearMonth.year && it.month == currentYearMonth.month }
-
-    // 연속 운동일수 계산
-    val sortedUniqueDates = photoDates.distinct().sortedDescending()
-    var currentStreak = 0
-    if (sortedUniqueDates.isNotEmpty()) {
-        val today = LocalDate.of(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH))
-        val latestWorkout = sortedUniqueDates.first()
-
-        // 오늘 또는 어제 운동을 했을 경우에만 연속 운동으로 인정
-        if (latestWorkout == today || latestWorkout == today.minusDays(1)) {
-            var streakDate = latestWorkout
-            for (date in sortedUniqueDates) {
-                if (date == streakDate) {
-                    currentStreak++
-                    streakDate = streakDate.minusDays(1)
-                } else {
-                    // 연속이 끊기는 순간 종료
-                    break
-                }
-            }
-        }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceAround
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "이번 달 운동일", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "$monthlyWorkoutDays 일", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "연속 운동", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "$currentStreak 일", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
-    }
-}
 
 @Composable
-fun Day(day: CalendarDay, isMarked: Boolean) {
+fun Day(day: CalendarDay, isMarked: Boolean, onDateSelected: (LocalDate) -> Unit) {
     Box(
         modifier = Modifier
-            .aspectRatio(1f), // This is important for square cells.
+            .aspectRatio(1f)
+            .clickable { onDateSelected(day.date) },
         contentAlignment = Alignment.Center
     ) {
         Text(text = day.date.dayOfMonth.toString())
@@ -239,14 +190,12 @@ fun Day(day: CalendarDay, isMarked: Boolean) {
 
 @Composable
 fun RecordCalendar(
-    photoDates: List<LocalDate>
+    markedDates: List<LocalDate>,
+    onDateSelected: (LocalDate) -> Unit
 ) {
-    val currentMonth = remember {
-        val cal = Calendar.getInstance()
-        YearMonth.of(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
-    }
-    val startMonth = remember { currentMonth.minusMonths(100) } 
-    val endMonth = remember { currentMonth.plusMonths(100) } 
+    val currentMonth = remember { YearMonth.now() }
+    val startMonth = remember { currentMonth.minusMonths(100) }
+    val endMonth = remember { currentMonth.plusMonths(100) }
     val firstDayOfWeek = remember { firstDayOfWeekFromLocale() }
 
     val state = rememberCalendarState(
@@ -259,13 +208,22 @@ fun RecordCalendar(
     HorizontalCalendar(
         state = state,
         dayContent = { day ->
-            val isMarked = photoDates.contains(day.date)
-            Day(day, isMarked)
+            val isMarked = markedDates.contains(day.date)
+            Day(day, isMarked, onDateSelected)
         },
         monthHeader = { month ->
             MonthHeader(daysOfWeek = month.weekDays.first(), month = month.yearMonth.toString())
         }
     )
+}
+
+@Composable
+fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
+    Column {
+        exercises.forEach { exercise ->
+            Text(text = "${exercise.name} - ${exercise.sets} sets, ${exercise.repsPerSet} reps")
+        }
+    }
 }
 
 @Composable
@@ -287,15 +245,4 @@ fun MonthHeader(daysOfWeek: List<CalendarDay>, month: String) {
             }
         }
     }
-}
-
-
-fun createImageFile(context: Context): File {
-    val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-    val storageDir: File? = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-    return File.createTempFile(
-        "JPEG_${timeStamp}_",
-        ".jpg",
-        storageDir
-    )
 }
