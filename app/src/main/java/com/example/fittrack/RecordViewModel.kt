@@ -20,17 +20,14 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
+import java.time.format.DateTimeParseException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RecordViewModel(application: Application) : AndroidViewModel(application) {
 
     private val photoDao = PhotoDatabase.getDatabase(application).photoDao()
     private val exerciseDao = FitTrackDatabase.getInstance(application).todayExerciseDao()
-
-    private val _photos = MutableStateFlow<List<Photo>>(emptyList())
 
     private val _photoDates = MutableStateFlow<List<LocalDate>>(emptyList())
     val photoDates: StateFlow<List<LocalDate>> = _photoDates.asStateFlow()
@@ -50,13 +47,8 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
-    val photosForSelectedDate: StateFlow<List<Photo>> = combine(
-        _photos,
-        selectedDate
-    ) { allPhotos, date ->
-        allPhotos.filter { photo ->
-            Instant.ofEpochMilli(photo.createdAt).atZone(ZoneId.systemDefault()).toLocalDate() == date
-        }
+    val photosForSelectedDate: StateFlow<List<Photo>> = selectedDate.flatMapLatest { date ->
+        photoDao.getPhotoForDate(date.toString())
     }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
 
 
@@ -66,9 +58,12 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         photoDao.getAllPhotos().onEach { photoList ->
-            _photos.value = photoList
-            _photoDates.value = photoList.map { photo ->
-                Instant.ofEpochMilli(photo.createdAt).atZone(ZoneId.systemDefault()).toLocalDate()
+            _photoDates.value = photoList.mapNotNull {
+                try {
+                    LocalDate.parse(it.date)
+                } catch (e: DateTimeParseException) {
+                    null
+                }
             }.distinct()
         }.launchIn(viewModelScope)
 
@@ -81,14 +76,21 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         _selectedDate.value = date
     }
 
-    fun addPhoto(uri: Uri? = null) {
+    fun addPhoto(uri: Uri?) {
         viewModelScope.launch {
-            val photo = if (uri != null) {
-                Photo(uri = uri.toString(), createdAt = System.currentTimeMillis())
-            } else {
-                Photo(uri = "", createdAt = System.currentTimeMillis())
-            }
+            val imageUri = uri ?: Uri.parse("android.resource://com.example.fittrack/drawable/dumbel")
+            val photo = Photo(
+                uri = imageUri.toString(),
+                date = _selectedDate.value.toString(),
+                createdAt = System.currentTimeMillis()
+            )
             photoDao.insert(photo)
+        }
+    }
+
+    fun deletePhoto(photo: Photo) {
+        viewModelScope.launch {
+            photoDao.delete(photo)
         }
     }
 }

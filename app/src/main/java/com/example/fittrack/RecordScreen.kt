@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,37 +55,55 @@ fun RecordScreen(
         Column(modifier = Modifier.padding(paddingValues)) {
             RecordCalendar(markedDates = markedDates, onDateSelected = { date -> viewModel.onDateSelected(date) })
 
-            Text(
-                text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), modifier = modifier.padding(start = 12.dp)
-            )
-
-            ExerciseListView(exercises = exercises)
-
-            val configuration = LocalConfiguration.current
-            val screenWidth = configuration.screenWidthDp.dp
-            val spacing = 8.dp
-            val imageSize = (screenWidth - 32.dp - (spacing * 3)) / 4
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                )
+                val photo = photos.firstOrNull()
+                if (photo != null) {
+                    Button(onClick = { viewModel.deletePhoto(photo) }) {
+                        Text("사진 삭제")
+                    }
+                }
+            }
 
             LazyColumn(
                 modifier = modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(spacing)
+                    .padding(16.dp)
             ) {
-                items(photos.chunked(4)) { rowPhotos ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
-                        rowPhotos.forEach { photo ->
-                            if (photo.uri.isNotEmpty()) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(photo.uri.toUri())
-                                        .crossfade(true)
-                                        .build(),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.size(imageSize)
-                                )
-                            }
+                item {
+                    ExerciseListView(exercises = exercises)
+                }
+
+                val photo = photos.firstOrNull()
+                if (photo != null && photo.uri.isNotEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 2)
+
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(photo.uri.toUri())
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(imageSize)
+                            )
                         }
                     }
                 }
@@ -146,8 +164,8 @@ fun RecordCalendar(
 
 @Composable
 fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
-    LazyColumn {
-        items(exercises) { exercise ->
+    Column {
+        exercises.forEach { exercise ->
             Text(text = "${exercise.name} - ${exercise.sets} sets, ${exercise.repsPerSet} reps")
         }
     }

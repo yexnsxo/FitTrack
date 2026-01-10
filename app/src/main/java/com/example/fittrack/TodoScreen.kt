@@ -72,6 +72,7 @@ fun TodoScreen(
     val selected by vm.selectedCategory.collectAsState()
     val filteredCatalog by vm.filteredCatalog.collectAsState()
     val todayList by vm.todayList.collectAsState()
+    val isTodayPhotoSaved by vm.isTodayPhotoSaved.collectAsState()
     val context = LocalContext.current
     var showInitialDialog by remember { mutableStateOf(false) }
     var showPhotoDialog by remember { mutableStateOf(false) }
@@ -130,6 +131,7 @@ fun TodoScreen(
                 item {
                     AllExercisesDoneCard(
                         onSaveClick = { showInitialDialog = true },
+                        isButtonVisible = !isTodayPhotoSaved
                     )
                 }
             }
@@ -164,7 +166,7 @@ fun TodoScreen(
                 dismissButton = {
                     Button(
                         onClick = {
-                            recordViewModel.addPhoto()
+                            recordViewModel.addPhoto(null)
                             showInitialDialog = false
                             navController.navigate("record")
                         }
@@ -426,7 +428,8 @@ fun CategoryChip(
 @Composable
 fun AllExercisesDoneCard(
     onSaveClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isButtonVisible: Boolean
 ) {
     val shape = RoundedCornerShape(28.dp)
 
@@ -472,22 +475,23 @@ fun AllExercisesDoneCard(
                     fontSize = 12.sp,
                 )
             }
-
-            Button(
-                onClick = onSaveClick,
-                modifier = Modifier,
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color(0xFF1F6FF2)
-                ),
-                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp)
-            ) {
-                Text(
-                    text = "오늘의 운동 기록 남기기",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
+            if (isButtonVisible) {
+                Button(
+                    onClick = onSaveClick,
+                    modifier = Modifier,
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFF1F6FF2)
+                    ),
+                    contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "오늘의 운동 기록 남기기",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
     }

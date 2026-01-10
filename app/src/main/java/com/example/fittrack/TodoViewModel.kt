@@ -6,10 +6,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.fittrack.data.Exercise
 import com.example.fittrack.data.FitTrackDatabase
+import com.example.fittrack.data.PhotoDao
+import com.example.fittrack.data.PhotoDatabase
 import com.example.fittrack.data.TodayExerciseEntity
 import com.example.fittrack.data.TodoRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import kotlin.math.roundToInt
 
 enum class CategoryFilter(val key: String?, val label: String, val emoji: String) {
@@ -26,7 +29,8 @@ data class ProgressUi(
 )
 
 class TodoViewModel(
-    private val repo: TodoRepository
+    private val repo: TodoRepository,
+    photoDao: PhotoDao
 ) : ViewModel() {
 
     private val todayKey: String = repo.todayKey()
@@ -57,6 +61,24 @@ class TodoViewModel(
                 )
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUi())
+
+    val isTodayPhotoSaved: StateFlow<Boolean> =
+        photoDao.getAllPhotos()
+            .map { photos ->
+                val cal = Calendar.getInstance()
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                val startOfDay = cal.timeInMillis
+
+                cal.add(Calendar.DAY_OF_YEAR, 1)
+                val endOfDay = cal.timeInMillis
+
+                photos.any { it.createdAt in startOfDay until endOfDay }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
 
     init {
         viewModelScope.launch {
@@ -184,8 +206,9 @@ class TodoViewModelFactory(
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         val db = FitTrackDatabase.getInstance(appContext)
+        val photoDb = PhotoDatabase.getDatabase(appContext)
         val repo = TodoRepository(appContext, db.todayExerciseDao())
         @Suppress("UNCHECKED_CAST")
-        return TodoViewModel(repo) as T
+        return TodoViewModel(repo, photoDb.photoDao()) as T
     }
 }
