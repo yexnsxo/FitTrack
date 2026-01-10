@@ -1,6 +1,7 @@
 package com.example.fittrack
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,12 +26,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.fittrack.data.TodayExerciseEntity
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
@@ -39,22 +39,27 @@ import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.util.Calendar
 
 @Composable
 fun RecordScreen(
     modifier: Modifier = Modifier,
     viewModel: RecordViewModel
 ) {
-    val photos by viewModel.photos.collectAsState()
-    val photoDates by viewModel.photoDates.collectAsState()
+    val photos by viewModel.photosForSelectedDate.collectAsState()
+    val markedDates by viewModel.markedDates.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val exercises by viewModel.exercisesForSelectedDate.collectAsState()
 
     Scaffold {
         paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
-            RecordCalendar(photoDates = photoDates)
+            RecordCalendar(markedDates = markedDates, onDateSelected = { date -> viewModel.onDateSelected(date) })
 
-            WorkoutStats(photoDates = photoDates)
+            Text(
+                text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), modifier = modifier.padding(start = 12.dp)
+            )
+
+            ExerciseListView(exercises = exercises)
 
             val configuration = LocalConfiguration.current
             val screenWidth = configuration.screenWidthDp.dp
@@ -89,53 +94,13 @@ fun RecordScreen(
     }
 }
 
-@Composable
-fun WorkoutStats(photoDates: List<LocalDate>) {
-    val cal = Calendar.getInstance()
-    val currentYearMonth = YearMonth.of(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
-    val monthlyWorkoutDays = photoDates.distinct().count { it.year == currentYearMonth.year && it.month == currentYearMonth.month }
-
-    val sortedUniqueDates = photoDates.distinct().sortedDescending()
-    var currentStreak = 0
-    if (sortedUniqueDates.isNotEmpty()) {
-        val today = LocalDate.now()
-        val latestWorkout = sortedUniqueDates.first()
-
-        if (latestWorkout == today || latestWorkout == today.minusDays(1)) {
-            var streakDate = latestWorkout
-            for (date in sortedUniqueDates) {
-                if (date == streakDate) {
-                    currentStreak++
-                    streakDate = streakDate.minusDays(1)
-                } else {
-                    break
-                }
-            }
-        }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceAround
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "이번 달 운동일", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "$monthlyWorkoutDays 일", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "연속 운동", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "$currentStreak 일", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
-    }
-}
 
 @Composable
-fun Day(day: CalendarDay, isMarked: Boolean) {
+fun Day(day: CalendarDay, isMarked: Boolean, onDateSelected: (LocalDate) -> Unit) {
     Box(
         modifier = Modifier
-            .aspectRatio(1f),
+            .aspectRatio(1f)
+            .clickable { onDateSelected(day.date) },
         contentAlignment = Alignment.Center
     ) {
         Text(text = day.date.dayOfMonth.toString())
@@ -152,11 +117,12 @@ fun Day(day: CalendarDay, isMarked: Boolean) {
 
 @Composable
 fun RecordCalendar(
-    photoDates: List<LocalDate>
+    markedDates: List<LocalDate>,
+    onDateSelected: (LocalDate) -> Unit
 ) {
     val currentMonth = remember { YearMonth.now() }
-    val startMonth = remember { currentMonth.minusMonths(100) } 
-    val endMonth = remember { currentMonth.plusMonths(100) } 
+    val startMonth = remember { currentMonth.minusMonths(100) }
+    val endMonth = remember { currentMonth.plusMonths(100) }
     val firstDayOfWeek = remember { firstDayOfWeekFromLocale() }
 
     val state = rememberCalendarState(
@@ -169,13 +135,22 @@ fun RecordCalendar(
     HorizontalCalendar(
         state = state,
         dayContent = { day ->
-            val isMarked = photoDates.contains(day.date)
-            Day(day, isMarked)
+            val isMarked = markedDates.contains(day.date)
+            Day(day, isMarked, onDateSelected)
         },
         monthHeader = { month ->
             MonthHeader(daysOfWeek = month.weekDays.first(), month = month.yearMonth.toString())
         }
     )
+}
+
+@Composable
+fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
+    LazyColumn {
+        items(exercises) { exercise ->
+            Text(text = "${exercise.name} - ${exercise.sets} sets, ${exercise.repsPerSet} reps")
+        }
+    }
 }
 
 @Composable

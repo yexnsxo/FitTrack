@@ -53,6 +53,9 @@ interface TodayExerciseDao {
     @Query("SELECT * FROM today_exercises WHERE dateKey = :dateKey ORDER BY rowId DESC")
     fun observeToday(dateKey: String): kotlinx.coroutines.flow.Flow<List<TodayExerciseEntity>>
 
+    @Query("SELECT DISTINCT dateKey FROM today_exercises")
+    fun getAllExerciseDates(): kotlinx.coroutines.flow.Flow<List<String>>
+
     @Insert
     suspend fun insert(item: TodayExerciseEntity)
 
@@ -65,7 +68,7 @@ interface TodayExerciseDao {
     @Query("DELETE FROM today_exercises WHERE dateKey != :todayKey AND isCompleted = 0")
     suspend fun deleteNotToday(todayKey: String)
 
-    @Query("""UPDATE today_exercises SET sets = :sets, repsPerSet = :repsPerSet, duration = :duration, calories = :calories WHERE rowId = :rowId""")
+    @Query("UPDATE today_exercises SET sets = :sets, repsPerSet = :repsPerSet, duration = :duration, calories = :calories WHERE rowId = :rowId")
     suspend fun updateAmounts(rowId: Long, sets: Int?, repsPerSet: Int?, duration: Int?, calories: Int)
 }
 
@@ -106,6 +109,8 @@ class TodoRepository(
     private val json = Json { ignoreUnknownKeys = true }
 
     fun todayKey(): String = LocalDate.now().toString()
+    fun getAllExerciseDates(): kotlinx.coroutines.flow.Flow<List<String>> = dao.getAllExerciseDates()
+
 
     suspend fun loadCatalogFromAssets(): List<Exercise> = withContext(Dispatchers.IO) {
         val text = context.assets.open("exercise_database.json")

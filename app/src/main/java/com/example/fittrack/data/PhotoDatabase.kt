@@ -43,8 +43,6 @@ abstract class PhotoDatabase : RoomDatabase() {
                     PhotoDatabase::class.java,
                     "photo_database"
                 )
-                // Add this line to handle all migration errors automatically
-                .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
                 instance
