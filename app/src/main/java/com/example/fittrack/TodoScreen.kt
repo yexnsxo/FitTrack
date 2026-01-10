@@ -1,7 +1,5 @@
 package com.example.fittrack
 
-import android.R.attr.layoutDirection
-import android.text.TextUtils.isEmpty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,7 +39,14 @@ import kotlinx.serialization.json.Json
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fittrack.data.Exercise
 
@@ -57,44 +62,72 @@ private suspend fun loadExercisesFromAssets(context: android.content.Context): L
     }
 
 @Composable
-fun TodoScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(factory = TodoViewModelFactory(LocalContext.current.applicationContext))) {
+fun TodoScreen(
+    modifier: Modifier = Modifier,
+    vm: TodoViewModel = viewModel(factory = TodoViewModelFactory(LocalContext.current.applicationContext))
+) {
     val progress by vm.progress.collectAsState()
     val selected by vm.selectedCategory.collectAsState()
     val filteredCatalog by vm.filteredCatalog.collectAsState()
     val todayList by vm.todayList.collectAsState()
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = 12.dp,
-            bottom = 20.dp
-        ),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        item {
-            ProgressOverview(completedCount = progress.completedCount, totalCount = progress.totalCount, caloriesSum = progress.caloriesSum)
-        }
-        item {
-            TodayListCard(
-                items = todayList,
-                onToggle = vm::toggleCompleted,
-                onDelete = vm::deleteTodayRow
-            )
-        }
-        item {
-            CategoryCard(
-                selected = selected,
-                onSelect = vm::selectCategory
-            )
+    // ✅ 모달 상태 (by 쓰지 말고 value로)
+    val pendingAddState = remember { mutableStateOf<Exercise?>(null) }
+
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            item { ProgressOverview(completedCount = progress.completedCount, totalCount = progress.totalCount, caloriesSum = progress.caloriesSum) }
+
+            item {
+                TodayListCard(
+                    items = todayList,
+                    onToggle = vm::toggleCompleted,
+                    onDelete = vm::deleteTodayRow,
+                    onEditStrength = vm::updateTodayRowStrength,
+                    onEditDuration = vm::updateTodayRowDuration
+                )
+            }
+
+            if (progress.completedCount != 0 && progress.completedCount == progress.totalCount) {
+                item {
+                    // Todo
+                    AllExercisesDoneCard(
+                        onSaveClick = { /* Record */ },
+                    )
+                }
+            }
+
+
+            item { CategoryCard(selected = selected, onSelect = vm::selectCategory) }
+
+            item {
+                ExerciseCatalogCard(
+                    exercises = filteredCatalog,
+                    onAdd = { ex ->
+                        pendingAddState.value = ex
+                    }
+                )
+            }
         }
 
-        item {
-            ExerciseCatalogCard(
-                exercises = filteredCatalog,
-                onAdd = vm::addExerciseToToday
+        // ✅ 모달
+        val pending = pendingAddState.value
+        if (pending != null) {
+            AddExerciseDialog(
+                exercise = pending,
+                onDismiss = { pendingAddState.value = null },
+                onConfirmStrength = { sets, reps ->
+                    vm.addExerciseToTodayWithSelection(pending, sets, reps)
+                    pendingAddState.value = null
+                },
+                onConfirmDuration = { minutes ->
+                    vm.addExerciseToTodayWithDuration(pending, minutes)
+                    pendingAddState.value = null
+                }
             )
         }
     }
@@ -146,55 +179,91 @@ fun PercentProgressRing(
 @Composable
 fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int) {
     Spacer(Modifier.height(10.dp))
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .background(Main40)
-            .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
+
+    val shape = RoundedCornerShape(18.dp)
+    val bg = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFF1F6FF2),
+            Color(0xFF2E86FF)
+        )
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = shape,
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(bg, shape)
+                .padding(16.dp),
+        )  {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
                 text = "오늘의 운동",
                 color = Color.White,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
                 Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxHeight(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.Start
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "${completedCount}/${totalCount}", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
-                        Text("완료됨", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
-                    }
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(
+                                text = "${completedCount}/${totalCount}",
+                                color = Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "완료됨",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp
+                            )
+                        }
 
-                    Column(
-                        modifier = Modifier.fillMaxHeight(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Text("$caloriesSum", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-                        Text("소모 칼로리", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
-                    }
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(
+                                "$caloriesSum",
+                                color = Color.White,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "소모 칼로리",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp
+                            )
+                        }
 
-                    PercentProgressRing(
-                        completedCount = completedCount,
-                        totalCount = totalCount,
-                        modifier = Modifier.size(80.dp)
-                    )
+                        PercentProgressRing(
+                            completedCount = completedCount,
+                            totalCount = totalCount,
+                            modifier = Modifier.size(80.dp)
+                        )
+                    }
                 }
+
             }
         }
     }
@@ -262,6 +331,76 @@ fun CategoryChip(
             Text(emoji, fontSize = 18.sp, color = fg)
             Spacer(Modifier.width(10.dp))
             Text(text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = fg)
+        }
+    }
+}
+
+@Composable
+fun AllExercisesDoneCard(
+    onSaveClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(28.dp)
+
+    val bg = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFF1F6FF2),
+            Color(0xFF2E86FF)
+        )
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp)
+            .shadow(
+                elevation = 14.dp,
+                shape = shape,
+                clip = false
+            )
+            .clip(shape)
+            .background(bg)
+            .padding(horizontal = 20.dp, vertical = 28.dp),
+        contentAlignment = Alignment.Center
+
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "모든 운동이 끝났습니다! 🎉",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "오늘도 멋지게 완료하셨네요!",
+                    color = Color.White.copy(alpha = 0.92f),
+                    fontSize = 12.sp,
+                )
+            }
+
+            Button(
+                onClick = onSaveClick,
+                modifier = Modifier,
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF1F6FF2)
+                ),
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "오늘의 운동 기록 남기기",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
     }
 }

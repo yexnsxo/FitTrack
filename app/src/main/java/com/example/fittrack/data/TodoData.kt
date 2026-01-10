@@ -16,12 +16,12 @@ data class Exercise(
     val category: String,
     val sets: Int? = null,
     val duration: Int? = null,
-    val calories: Int,
+    val calories: Double, // ✅ JSON에 5.5, 6.5 등이 있어서 Double로
     val difficulty: String,
     val description: String
 )
 
-// 2) Today List Entity (Room) + 중복 추가 허용
+// 2) Today List Entity (Room)
 @Entity(
     tableName = "today_exercises",
     indices = [Index(value = ["dateKey"])]
@@ -32,18 +32,21 @@ data class TodayExerciseEntity(
     val exerciseId: String,
     val name: String,
     val category: String,
+
+    // ✅ 사용자가 선택한 값
     val sets: Int? = null,
-    val duration: Int? = null,
+    val repsPerSet: Int? = null,   // ✅ 추가 (세트당 횟수)
+    val duration: Int? = null,     // 유산소/유연성은 분 단위
+
     val calories: Int,
     val difficulty: String,
     val description: String,
     val isCompleted: Boolean = false
 )
 
-// 3) DAO
+// 3) DAO 동일 (변경 없음)
 @Dao
 interface TodayExerciseDao {
-
     @Query("SELECT * FROM today_exercises WHERE dateKey = :dateKey ORDER BY rowId DESC")
     suspend fun getTodayOnce(dateKey: String): List<TodayExerciseEntity>
 
@@ -61,12 +64,15 @@ interface TodayExerciseDao {
 
     @Query("DELETE FROM today_exercises WHERE dateKey != :todayKey")
     suspend fun deleteNotToday(todayKey: String)
+
+    @Query("""UPDATE today_exercises SET sets = :sets, repsPerSet = :repsPerSet, duration = :duration, calories = :calories WHERE rowId = :rowId""")
+    suspend fun updateAmounts(rowId: Long, sets: Int?, repsPerSet: Int?, duration: Int?, calories: Int)
 }
 
 // 4) Database
 @Database(
     entities = [TodayExerciseEntity::class],
-    version = 1,
+    version = 2, // ✅ schema 변경 -> version 올림
     exportSchema = false
 )
 abstract class FitTrackDatabase : RoomDatabase() {
@@ -81,20 +87,25 @@ abstract class FitTrackDatabase : RoomDatabase() {
                     context.applicationContext,
                     FitTrackDatabase::class.java,
                     "fittrack.db"
-                ).build().also { INSTANCE = it }
+                )
+                    // ✅ 개발 단계에서 마이그레이션 귀찮으면 이게 가장 안전
+                    // (기존 DB 날리고 새로 생성)
+                    .fallbackToDestructiveMigration()
+                    .build()
+                    .also { INSTANCE = it }
             }
         }
     }
 }
 
-// 5) Repository
+// 5) Repository (아래에서 addToToday 변경)
 class TodoRepository(
     private val context: Context,
     private val dao: TodayExerciseDao
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun todayKey(): String = LocalDate.now().toString() // "yyyy-MM-dd"
+    fun todayKey(): String = LocalDate.now().toString()
 
     suspend fun loadCatalogFromAssets(): List<Exercise> = withContext(Dispatchers.IO) {
         val text = context.assets.open("exercise_database.json")
@@ -110,16 +121,24 @@ class TodoRepository(
         dao.deleteNotToday(todayKey)
     }
 
-    suspend fun addToToday(ex: Exercise, dateKey: String) {
+    suspend fun addToToday(
+        ex: Exercise,
+        dateKey: String,
+        sets: Int? = null,
+        repsPerSet: Int? = null,
+        duration: Int? = null,
+        calories: Int
+    ) {
         dao.insert(
             TodayExerciseEntity(
                 dateKey = dateKey,
                 exerciseId = ex.id,
                 name = ex.name,
                 category = ex.category,
-                sets = ex.sets,
-                duration = ex.duration,
-                calories = ex.calories,
+                sets = sets,
+                repsPerSet = repsPerSet,
+                duration = duration,
+                calories = calories,
                 difficulty = ex.difficulty,
                 description = ex.description
             )
@@ -132,5 +151,15 @@ class TodoRepository(
 
     suspend fun deleteRow(rowId: Long) {
         dao.deleteById(rowId)
+    }
+
+    suspend fun updateTodayAmounts(
+        rowId: Long,
+        sets: Int?,
+        repsPerSet: Int?,
+        duration: Int?,
+        calories: Int
+    ) {
+        dao.updateAmounts(rowId, sets, repsPerSet, duration, calories)
     }
 }
