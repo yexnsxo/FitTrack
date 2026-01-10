@@ -18,12 +18,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,7 +69,9 @@ fun Modifier.dashedBorder(
 fun TodayListCard(
     items: List<TodayExerciseEntity>,
     onToggle: (rowId: Long, checked: Boolean) -> Unit,
-    onDelete: (rowId: Long) -> Unit
+    onDelete: (rowId: Long) -> Unit,
+    onEditStrength: (TodayExerciseEntity, Int, Int) -> Unit,
+    onEditDuration: (TodayExerciseEntity, Int) -> Unit
 ) {
     Text("오늘의 운동 목록", fontWeight = FontWeight.Bold, fontSize = 20.sp)
     Spacer(Modifier.height(8.dp))
@@ -121,7 +126,9 @@ fun TodayListCard(
             TodayRow(
                 item = item,
                 onToggle = { checked -> onToggle(item.rowId, checked) },
-                onDelete = { onDelete(item.rowId) }
+                onDelete = { onDelete(item.rowId) },
+                onEditStrength = { sets, reps -> onEditStrength(item, sets, reps) },
+                onEditDuration = { minutes -> onEditDuration(item, minutes) }
             )
         }
     }
@@ -132,18 +139,19 @@ fun TodayListCard(
 private fun TodayRow(
     item: TodayExerciseEntity,
     onToggle: (Boolean) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEditStrength: (sets: Int, reps: Int) -> Unit,
+    onEditDuration: (minutes: Int) -> Unit
 ) {
     val selected = item.isCompleted
+    val editOpen = remember { mutableStateOf(false) }
 
     val cardShape = RoundedCornerShape(22.dp)
     val borderColor = if (selected) Color(0xFF2F6BFF) else Color(0xFFE5E7EB)
     val shadowElevation = if (selected) 10.dp else 8.dp
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
-
+        modifier = Modifier.fillMaxWidth(),
         shape = cardShape,
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = shadowElevation)
@@ -154,33 +162,22 @@ private fun TodayRow(
                 .border(width = 2.dp, color = borderColor, shape = cardShape)
                 .padding(start = 18.dp, top = 18.dp, end = 8.dp, bottom = 18.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 체크 버튼
-                CircleCheck(
-                    checked = selected,
-                    onClick = { onToggle(!selected) }
-                )
-
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircleCheck(checked = selected, onClick = { onToggle(!selected) })
                 Spacer(Modifier.width(14.dp))
 
-                // 텍스트 영역
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = item.name,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        // 카테고리
+                        Text(
+                            text = item.name,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF111827)
+                        )
+                        Spacer(Modifier.width(2.dp))
                         CategoryPill(
                             emoji = when (item.category) {
                                 "strength" -> "💪"
@@ -195,48 +192,68 @@ private fun TodayRow(
                                 else -> "운동"
                             }
                         )
-
-                        // 난이도
                         DifficultyPill(difficulty = item.difficulty)
-
-                        // 세트/시간
-                        val amount = when {
-                            item.sets != null -> "${item.sets}세트"
-                            item.duration != null -> "${item.duration}분"
-                            else -> ""
-                        }
-                        if (amount.isNotBlank()) {
-                            Text(amount, color = Color(0xFF6B7280), fontSize = 12.sp)
-                        }
-
-                        // kcal
-                        Text(
-                            text = "${item.calories}kcal",
-                            color = Color(0xFF2563EB),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
                     }
 
                     Spacer(Modifier.height(10.dp))
 
-                    Text(
-                        text = item.description,
-                        color = Color(0xFF6B7280),
-                        fontSize = 16.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        if (item.sets != null) {
+                            Text(text = "${item.sets}세트 ${item.repsPerSet}회", fontSize = 15.sp)
+                        } else if (item.duration != null) {
+                            Text(text = "${item.duration}분")
+                        }
+
+                        Text(
+                            text = "${item.calories} kcal",
+                            color = Color(0xFF2563EB),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
 
-                // 삭제 버튼
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Filled.DeleteOutline,
-                        contentDescription = "삭제",
-                        tint = Color(0xFF6B7280)
-                    )
+                // ✅ 오른쪽 버튼 컬럼: 위=수정, 아래=삭제
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    IconButton(onClick = { editOpen.value = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "수정",
+                            tint = Color(0xFF6B7280)
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Filled.DeleteOutline,
+                            contentDescription = "삭제",
+                            tint = Color(0xFF6B7280)
+                        )
+                    }
                 }
             }
         }
+    }
+
+    // ✅ 수정 모달
+    if (editOpen.value) {
+        EditExerciseDialog(
+            item = item,
+            onDismiss = { editOpen.value = false },
+            onConfirmStrength = { sets, reps ->
+                onEditStrength(sets, reps)
+                editOpen.value = false
+            },
+            onConfirmDuration = { minutes ->
+                onEditDuration(minutes)
+                editOpen.value = false
+            }
+        )
     }
 }
 
