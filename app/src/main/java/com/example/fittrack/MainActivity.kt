@@ -45,12 +45,6 @@ import com.example.fittrack.ui.theme.Main40
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 
-// BUG FIX: 빌드 오류 해결을 위해 필요한 클래스들의 주소(import)를 추가합니다.
-import com.example.fittrack.RecordScreen
-import com.example.fittrack.TimerScreen
-import com.example.fittrack.TodoScreen
-import com.example.fittrack.TimerViewModel
-
 enum class Destination(
     val route: String,
     val label: String,

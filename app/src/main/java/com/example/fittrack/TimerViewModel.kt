@@ -11,45 +11,128 @@ import kotlinx.coroutines.launch
 
 class TimerViewModel : ViewModel() {
 
-    private val _totalTime = MutableStateFlow(60L) // Default 60 seconds
+    // 휴식 타이머 상태
+    private val _totalTime = MutableStateFlow(60L) // 총 휴식 시간 (초)
     val totalTime: StateFlow<Long> = _totalTime.asStateFlow()
 
-    private val _remainingTime = MutableStateFlow(60L)
+    private val _remainingTime = MutableStateFlow(60L) // 남은 휴식 시간
     val remainingTime: StateFlow<Long> = _remainingTime.asStateFlow()
 
-    private val _isRunning = MutableStateFlow(false)
-    val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
+    private val _isTimerRunning = MutableStateFlow(false)
+    val isTimerRunning: StateFlow<Boolean> = _isTimerRunning.asStateFlow()
 
     private var timerJob: Job? = null
 
-    fun setTime(seconds: Long) {
-        if (!isRunning.value) {
+    // 세트 & 횟수 상태
+    private val _totalSets = MutableStateFlow(5)
+    val totalSets: StateFlow<Int> = _totalSets.asStateFlow()
+
+    private val _currentSet = MutableStateFlow(1)
+    val currentSet: StateFlow<Int> = _currentSet.asStateFlow()
+
+    private val _reps = MutableStateFlow(0)
+    val reps: StateFlow<Int> = _reps.asStateFlow()
+
+    // 각 세트별 횟수를 저장하는 리스트
+    private val _setReps = MutableStateFlow<List<Int>>(listOf())
+    val setReps: StateFlow<List<Int>> = _setReps.asStateFlow()
+
+    init {
+        _setReps.value = List(_totalSets.value) { 0 }
+    }
+
+    // --- 타이머 함수 ---
+    fun setRestTime(seconds: Long) {
+        if (!isTimerRunning.value) {
             _totalTime.value = seconds
             _remainingTime.value = seconds
         }
     }
 
-    fun startTimer() {
-        if (isRunning.value || _remainingTime.value <= 0) return
+    private fun advanceToNextSet() {
+        if (_currentSet.value < _totalSets.value) {
+            _currentSet.value++
+        }
+        _reps.value = 0
+    }
 
-        _isRunning.value = true
+    private fun startRest() {
+        if (_isTimerRunning.value) return
+
+        _remainingTime.value = _totalTime.value
+        if (_remainingTime.value <= 0) {
+            advanceToNextSet()
+            return
+        }
+
+        _isTimerRunning.value = true
+        timerJob?.cancel()
         timerJob = viewModelScope.launch {
             while (_remainingTime.value > 0) {
                 delay(1000)
                 _remainingTime.value--
             }
-            _isRunning.value = false
+            _isTimerRunning.value = false
+            advanceToNextSet()
         }
     }
 
-    fun pauseTimer() {
-        _isRunning.value = false
+    fun stopRest() {
         timerJob?.cancel()
+        _isTimerRunning.value = false
+        _remainingTime.value = _totalTime.value
+        advanceToNextSet()
     }
 
-    fun resetTimer() {
-        _isRunning.value = false
+
+    // --- 세트 & 횟수 함수 ---
+    fun setTotalSets(count: Int) {
+        if (count > 0) {
+            _totalSets.value = count
+            val currentReps = _setReps.value
+            _setReps.value = List(count) { index -> currentReps.getOrNull(index) ?: 0 }
+            if (_currentSet.value > count) {
+                _currentSet.value = count
+            }
+        }
+    }
+
+    fun incrementReps() {
+        _reps.value++
+    }
+
+    fun decrementReps() {
+        if (_reps.value > 0) {
+            _reps.value--
+        }
+    }
+
+    fun incrementRepsByFive() {
+        _reps.value += 5
+    }
+
+    fun decrementRepsByFive() {
+        _reps.value = (_reps.value - 5).coerceAtLeast(0)
+    }
+
+    fun finishSet() {
+        if (_currentSet.value <= _totalSets.value) {
+            val updatedReps = _setReps.value.toMutableList()
+            updatedReps[_currentSet.value - 1] = _reps.value
+            _setReps.value = updatedReps
+        }
+
+        if (_currentSet.value < _totalSets.value) {
+            startRest()
+        }
+    }
+
+    fun resetWorkout() {
         timerJob?.cancel()
+        _isTimerRunning.value = false
         _remainingTime.value = _totalTime.value
+        _currentSet.value = 1
+        _reps.value = 0
+        _setReps.value = List(_totalSets.value) { 0 }
     }
 }

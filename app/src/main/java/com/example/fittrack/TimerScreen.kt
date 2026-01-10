@@ -11,13 +11,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,23 +38,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
 fun TimerScreen(viewModel: TimerViewModel) {
-    val totalTime by viewModel.totalTime.collectAsState()
-    val remainingTime by viewModel.remainingTime.collectAsState()
-    val isRunning by viewModel.isRunning.collectAsState()
-    
-    var tempInputTime by remember { mutableStateOf(totalTime.toString()) }
-
-    LaunchedEffect(totalTime, isRunning) {
-        if (!isRunning) {
-            tempInputTime = totalTime.toString()
-        }
-    }
+    val isTimerRunning by viewModel.isTimerRunning.collectAsState()
 
     Column(
         modifier = Modifier
@@ -54,43 +55,120 @@ fun TimerScreen(viewModel: TimerViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        if (isTimerRunning) {
+            RestTimerView(viewModel = viewModel)
+        } else {
+            SetCounterView(viewModel = viewModel)
+        }
+    }
+}
+
+@Composable
+fun RestTimerView(viewModel: TimerViewModel) {
+    val totalTime by viewModel.totalTime.collectAsState()
+    val remainingTime by viewModel.remainingTime.collectAsState()
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("휴식 시간", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(32.dp))
+
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(300.dp)) {
             CircularTimer(totalTime = totalTime, remainingTime = remainingTime)
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        OutlinedTextField(
-            value = tempInputTime,
-            onValueChange = { newTimeValue ->
-                tempInputTime = newTimeValue
-                newTimeValue.toLongOrNull()?.let { time ->
-                    if (time != totalTime) { 
-                        viewModel.setTime(time)
+        Button(onClick = { viewModel.stopRest() }) {
+            Text("휴식 건너뛰기")
+        }
+    }
+}
+
+@Composable
+fun SetCounterView(viewModel: TimerViewModel) {
+    val totalSets by viewModel.totalSets.collectAsState()
+    val currentSet by viewModel.currentSet.collectAsState()
+    val reps by viewModel.reps.collectAsState()
+    val setReps by viewModel.setReps.collectAsState()
+    val totalTime by viewModel.totalTime.collectAsState()
+    var tempInputTime by remember { mutableStateOf(totalTime.toString()) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 총 세트 수 설정
+            Text("총 세트 수", style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                IconButton(onClick = { viewModel.setTotalSets(totalSets - 1) }) {
+                    Icon(imageVector = Icons.Filled.Remove, contentDescription = "세트 감소")
+                }
+                Text(text = "$totalSets", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                IconButton(onClick = { viewModel.setTotalSets(totalSets + 1) }) {
+                    Icon(imageVector = Icons.Filled.Add, contentDescription = "세트 증가")
+                }
+            }
+            
+            // 휴식 시간 설정
+            OutlinedTextField(
+                value = tempInputTime,
+                onValueChange = { 
+                    tempInputTime = it
+                    it.toLongOrNull()?.let { time -> viewModel.setRestTime(time) }
+                },
+                label = { Text("휴식 시간 (초)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(0.8f),
+                singleLine = true
+            )
+
+            // 세트별 횟수 표시
+            Text("세트별 횟수", style = MaterialTheme.typography.titleMedium)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(setReps) { index, repCount ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${index + 1}세트", style = MaterialTheme.typography.bodySmall)
+                        Text("$repCount", style = MaterialTheme.typography.bodyLarge, fontWeight = if (index + 1 == currentSet) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
-            },
-            label = { Text("휴식 시간 (초)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(0.6f),
-            singleLine = true,
-            enabled = !isRunning 
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Button(onClick = { viewModel.startTimer() }, enabled = !isRunning && totalTime > 0) {
-                Text("시작")
             }
-            Button(onClick = { viewModel.pauseTimer() }, enabled = isRunning) {
-                Text("정지")
+
+            // 현재 세트 및 횟수
+            Text("$currentSet / $totalSets 세트", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            
+            Text("횟수", style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { viewModel.decrementRepsByFive() }) {
+                    Text("-5")
+                }
+                IconButton(onClick = { viewModel.decrementReps() }) {
+                    Icon(imageVector = Icons.Filled.Remove, contentDescription = "횟수 1 감소")
+                }
+                Text(text = "$reps", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
+                IconButton(onClick = { viewModel.incrementReps() }) {
+                    Icon(imageVector = Icons.Filled.Add, contentDescription = "횟수 1 증가")
+                }
+                Button(onClick = { viewModel.incrementRepsByFive() }) {
+                    Text("+5")
+                }
             }
-            Button(onClick = { viewModel.resetTimer() }) {
-                Text("초기화")
+
+            // 세트 완료 버튼
+            Button(onClick = { viewModel.finishSet() }, modifier = Modifier.fillMaxWidth()) {
+                Text("세트 완료")
+            }
+            
+            // 전체 운동 초기화 버튼
+            Button(onClick = { viewModel.resetWorkout() }, modifier = Modifier.fillMaxWidth()) {
+                Text("운동 초기화")
             }
         }
     }
@@ -99,8 +177,6 @@ fun TimerScreen(viewModel: TimerViewModel) {
 @Composable
 fun CircularTimer(totalTime: Long, remainingTime: Long) {
     val progress = if (totalTime > 0) remainingTime.toFloat() / totalTime else 0f
-
-    // BUG FIX: Read the theme color outside the Canvas's onDraw scope
     val progressColor = MaterialTheme.colorScheme.primary
 
     Box(contentAlignment = Alignment.Center) {
@@ -114,7 +190,7 @@ fun CircularTimer(totalTime: Long, remainingTime: Long) {
                 size = Size(size.width, size.height)
             )
             drawArc(
-                color = progressColor, // Use the variable here
+                color = progressColor,
                 startAngle = -90f,
                 sweepAngle = 360 * progress,
                 useCenter = false,
@@ -124,7 +200,7 @@ fun CircularTimer(totalTime: Long, remainingTime: Long) {
         Text(
             text = "${remainingTime / 60}:${(remainingTime % 60).toString().padStart(2, '0')}",
             fontSize = 70.sp,
-            color = MaterialTheme.colorScheme.primary // This is fine
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }
