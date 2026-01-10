@@ -99,13 +99,7 @@ fun RecordScreen(
         }
     }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Photo")
-            }
-        }
-    ) { paddingValues ->
+    Scaffold { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
             RecordCalendar(photoDates = photoDates)
 
@@ -287,15 +281,4 @@ fun MonthHeader(daysOfWeek: List<CalendarDay>, month: String) {
             }
         }
     }
-}
-
-
-fun createImageFile(context: Context): File {
-    val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-    val storageDir: File? = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-    return File.createTempFile(
-        "JPEG_${timeStamp}_",
-        ".jpg",
-        storageDir
-    )
 }

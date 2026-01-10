@@ -1,77 +1,110 @@
 package com.example.fittrack
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Environment
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Card
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
-import com.example.fittrack.ui.theme.Main40
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CardDefaults
-import kotlinx.serialization.json.Json
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.fittrack.data.Exercise
-
-
-private suspend fun loadExercisesFromAssets(context: android.content.Context): List<Exercise> =
-    withContext(Dispatchers.IO) {
-        val jsonText = context.assets.open("exercise_database.json")
-            .bufferedReader()
-            .use { it.readText() }
-
-        val json = Json { ignoreUnknownKeys = true }
-        json.decodeFromString<List<Exercise>>(jsonText)
-    }
+import com.example.fittrack.ui.theme.Main40
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun TodoScreen(
-    modifier: Modifier = Modifier,
-    vm: TodoViewModel = viewModel(factory = TodoViewModelFactory(LocalContext.current.applicationContext))
+    vm: TodoViewModel = viewModel(factory = TodoViewModelFactory(LocalContext.current.applicationContext)),
+    recordViewModel: RecordViewModel,
+    navController: NavController,
 ) {
     val progress by vm.progress.collectAsState()
     val selected by vm.selectedCategory.collectAsState()
     val filteredCatalog by vm.filteredCatalog.collectAsState()
     val todayList by vm.todayList.collectAsState()
+    val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(false) }
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // ✅ 모달 상태 (by 쓰지 말고 value로)
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            imageUri?.let { recordViewModel.addPhoto(it) }
+        }
+        navController.navigate("record")
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            recordViewModel.addPhoto(it)
+        }
+        navController.navigate("record")
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) {
+            val newImageFile = createImageFile(context)
+            val newImageUri = FileProvider.getUriForFile(context, "com.example.fittrack.provider", newImageFile)
+            imageUri = newImageUri
+            cameraLauncher.launch(newImageUri)
+        } else {
+            // Handle permission denial
+        }
+    }
+
     val pendingAddState = remember { mutableStateOf<Exercise?>(null) }
 
     Box(Modifier.fillMaxSize()) {
@@ -94,13 +127,11 @@ fun TodoScreen(
 
             if (progress.completedCount != 0 && progress.completedCount == progress.totalCount) {
                 item {
-                    // Todo
                     AllExercisesDoneCard(
-                        onSaveClick = { /* Record */ },
+                        onSaveClick = { showDialog = true },
                     )
                 }
             }
-
 
             item { CategoryCard(selected = selected, onSelect = vm::selectCategory) }
 
@@ -114,7 +145,34 @@ fun TodoScreen(
             }
         }
 
-        // ✅ 모달
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = { Text("Choose an option") },
+                text = { Text("Would you like to take a picture or choose from the gallery?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDialog = false
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    ) {
+                        Text("Camera")
+                    }
+                },
+                dismissButton = {
+                    Button(
+                        onClick = {
+                            showDialog = false
+                            galleryLauncher.launch("image/*")
+                        }
+                    ) {
+                        Text("Gallery")
+                    }
+                }
+            )
+        }
+
         val pending = pendingAddState.value
         if (pending != null) {
             AddExerciseDialog(
@@ -403,4 +461,14 @@ fun AllExercisesDoneCard(
             }
         }
     }
+}
+
+fun createImageFile(context: Context): File {
+    val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+    val storageDir: File? = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    return File.createTempFile(
+        "JPEG_${timeStamp}_",
+        ".jpg",
+        storageDir
+    )
 }

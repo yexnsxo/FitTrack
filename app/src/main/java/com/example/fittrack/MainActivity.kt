@@ -169,7 +169,7 @@ fun AppNavHost(
         Destination.entries.forEach { destination ->
             composable(destination.route) {
                 when (destination) {
-                    Destination.TODO -> TodoScreen()
+                    Destination.TODO -> TodoScreen(navController = navController, recordViewModel = recordViewModel)
                     Destination.RECORD -> RecordScreen(viewModel = recordViewModel)
                     // BUG FIX: TimerScreen에 timerViewModel을 전달합니다.
                     Destination.TIMER -> TimerScreen(viewModel = timerViewModel)
