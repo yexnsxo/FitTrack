@@ -7,6 +7,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -20,12 +22,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fittrack.data.Exercise
+import com.example.fittrack.ui.theme.Main40
 
 @Composable
 fun ExerciseItem(
     exercise: Exercise,
     onAdd: () -> Unit,
-    modifier: Modifier = Modifier.padding(vertical = 8.dp)
+    modifier: Modifier = Modifier.padding(vertical = 2.dp)
 ) {
     val cardShape = RoundedCornerShape(22.dp)
     val cardBg = Color(0xFFF2F4F7) // 사진처럼 연한 회색
@@ -141,6 +145,49 @@ fun ExerciseItem(
                     contentDescription = "add",
                     tint = Color(0xFF4B5563)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun ExerciseCatalogCard(
+    exercises: List<Exercise>,
+    onAdd: (Exercise) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("운동 선택", fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+
+                Button(
+                    onClick = { /* TODO: 직접 추가 다이얼로그 */ },
+                    colors = ButtonDefaults.buttonColors(containerColor = Main40, contentColor = Color.White)
+                ) {
+                    Icon(imageVector = Icons.Filled.Add, contentDescription = "추가")
+                    Spacer(Modifier.width(4.dp))
+                    Text("직접 추가")
+                }
+            }
+
+            exercises.forEach { ex ->
+                ExerciseItem(exercise = ex, onAdd = { onAdd(ex) })
+            }
+
+            if (exercises.isEmpty()) {
+                Text("해당 카테고리에 운동이 없어요.", color = Color(0xFF777777), fontSize = 14.sp)
             }
         }
     }
