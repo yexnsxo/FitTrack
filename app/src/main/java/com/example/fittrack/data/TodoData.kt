@@ -44,7 +44,7 @@ data class TodayExerciseEntity(
     val isCompleted: Boolean = false
 )
 
-// 3) DAO 동일 (변경 없음)
+// 3) DAO
 @Dao
 interface TodayExerciseDao {
     @Query("SELECT * FROM today_exercises WHERE dateKey = :dateKey ORDER BY rowId DESC")
@@ -62,7 +62,7 @@ interface TodayExerciseDao {
     @Query("DELETE FROM today_exercises WHERE rowId = :rowId")
     suspend fun deleteById(rowId: Long)
 
-    @Query("DELETE FROM today_exercises WHERE dateKey != :todayKey")
+    @Query("DELETE FROM today_exercises WHERE dateKey != :todayKey AND isCompleted = 0")
     suspend fun deleteNotToday(todayKey: String)
 
     @Query("""UPDATE today_exercises SET sets = :sets, repsPerSet = :repsPerSet, duration = :duration, calories = :calories WHERE rowId = :rowId""")
