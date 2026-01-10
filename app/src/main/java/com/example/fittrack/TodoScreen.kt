@@ -73,7 +73,8 @@ fun TodoScreen(
     val filteredCatalog by vm.filteredCatalog.collectAsState()
     val todayList by vm.todayList.collectAsState()
     val context = LocalContext.current
-    var showDialog by remember { mutableStateOf(false) }
+    var showInitialDialog by remember { mutableStateOf(false) }
+    var showPhotoDialog by remember { mutableStateOf(false) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
@@ -128,7 +129,7 @@ fun TodoScreen(
             if (progress.completedCount != 0 && progress.completedCount == progress.totalCount) {
                 item {
                     AllExercisesDoneCard(
-                        onSaveClick = { showDialog = true },
+                        onSaveClick = { showInitialDialog = true },
                     )
                 }
             }
@@ -145,29 +146,58 @@ fun TodoScreen(
             }
         }
 
-        if (showDialog) {
+        if (showInitialDialog) {
             AlertDialog(
-                onDismissRequest = { showDialog = false },
-                title = { Text("Choose an option") },
-                text = { Text("Would you like to take a picture or choose from the gallery?") },
+                onDismissRequest = { showInitialDialog = false },
+                title = { Text("오늘 운동 남기기") },
+                text = { Text("사진을 남기시겠습니까?") },
                 confirmButton = {
                     Button(
                         onClick = {
-                            showDialog = false
-                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                            showInitialDialog = false
+                            showPhotoDialog = true
                         }
                     ) {
-                        Text("Camera")
+                        Text("사진과 함께 기록")
                     }
                 },
                 dismissButton = {
                     Button(
                         onClick = {
-                            showDialog = false
+                            recordViewModel.addPhoto()
+                            showInitialDialog = false
+                            navController.navigate("record")
+                        }
+                    ) {
+                        Text("사진 없이 기록")
+                    }
+                }
+            )
+        }
+
+        if (showPhotoDialog) {
+            AlertDialog(
+                onDismissRequest = { showPhotoDialog = false },
+                title = { Text("사진 선택") },
+                text = { Text("사진을 촬영하거나 갤러리에서 선택하세요.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showPhotoDialog = false
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    ) {
+                        Text("카메라")
+                    }
+                },
+                dismissButton = {
+                    Button(
+                        onClick = {
+                            showPhotoDialog = false
                             galleryLauncher.launch("image/*")
                         }
                     ) {
-                        Text("Gallery")
+                        Text("갤러리")
                     }
                 }
             )
@@ -464,11 +494,12 @@ fun AllExercisesDoneCard(
 }
 
 fun createImageFile(context: Context): File {
-    val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+    // Create an image file name
+    val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     val storageDir: File? = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
     return File.createTempFile(
-        "JPEG_${timeStamp}_",
-        ".jpg",
-        storageDir
+        "JPEG_${timeStamp}_", /* prefix */
+        ".jpg", /* suffix */
+        storageDir /* directory */
     )
 }

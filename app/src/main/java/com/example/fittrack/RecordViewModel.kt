@@ -37,10 +37,14 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         }.launchIn(viewModelScope)
     }
 
-    fun addPhoto(uri: Uri) {
+    fun addPhoto(uri: Uri? = null) {
         viewModelScope.launch {
-            // Add current time when inserting a new photo
-            photoDao.insert(Photo(uri = uri.toString(), createdAt = System.currentTimeMillis()))
+            val photo = if (uri != null) {
+                Photo(uri = uri.toString(), createdAt = System.currentTimeMillis())
+            } else {
+                Photo(uri = "", createdAt = System.currentTimeMillis())
+            }
+            photoDao.insert(photo)
         }
     }
 }
