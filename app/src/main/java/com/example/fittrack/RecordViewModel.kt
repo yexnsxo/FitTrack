@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -35,12 +36,17 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
 
-    private val _exerciseDates = MutableStateFlow<List<LocalDate>>(emptyList())
-    val exerciseDates: StateFlow<List<LocalDate>> = _exerciseDates.asStateFlow()
-
     val exercisesForSelectedDate: StateFlow<List<TodayExerciseEntity>> =
-        selectedDate.flatMapLatest { date ->
-            exerciseDao.observeToday(date.toString())
+        combine(selectedDate, photoDates) { date, photoDates ->
+            if (photoDates.contains(date)) {
+                date
+            } else {
+                null
+            }
+        }.flatMapLatest { date ->
+            date?.let {
+                exerciseDao.observeToday(it.toString())
+            } ?: flowOf(emptyList())
         }.stateIn(
             scope = viewModelScope,
             started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000),
@@ -52,9 +58,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
 
 
-    val markedDates: StateFlow<List<LocalDate>> = combine(photoDates, exerciseDates) { photos, exercises ->
-        (photos + exercises).distinct()
-    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
+    val markedDates: StateFlow<List<LocalDate>> = photoDates
 
     init {
         photoDao.getAllPhotos().onEach { photoList ->
@@ -65,10 +69,6 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
                     null
                 }
             }.distinct()
-        }.launchIn(viewModelScope)
-
-        exerciseDao.getAllExerciseDates().onEach { dateStrings ->
-            _exerciseDates.value = dateStrings.map { LocalDate.parse(it) }
         }.launchIn(viewModelScope)
     }
 

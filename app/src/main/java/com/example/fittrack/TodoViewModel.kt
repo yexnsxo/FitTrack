@@ -8,6 +8,7 @@ import com.example.fittrack.data.Exercise
 import com.example.fittrack.data.FitTrackDatabase
 import com.example.fittrack.data.PhotoDao
 import com.example.fittrack.data.PhotoDatabase
+import com.example.fittrack.data.PhotoRepository
 import com.example.fittrack.data.TodayExerciseEntity
 import com.example.fittrack.data.TodoRepository
 import kotlinx.coroutines.flow.*
@@ -30,7 +31,7 @@ data class ProgressUi(
 
 class TodoViewModel(
     private val repo: TodoRepository,
-    photoDao: PhotoDao
+    private val photoDao: PhotoDao
 ) : ViewModel() {
 
     private val todayKey: String = repo.todayKey()
@@ -207,7 +208,8 @@ class TodoViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         val db = FitTrackDatabase.getInstance(appContext)
         val photoDb = PhotoDatabase.getDatabase(appContext)
-        val repo = TodoRepository(appContext, db.todayExerciseDao())
+        val photoRepository = PhotoRepository(photoDb.photoDao())
+        val repo = TodoRepository(appContext, db.todayExerciseDao(), photoRepository)
         @Suppress("UNCHECKED_CAST")
         return TodoViewModel(repo, photoDb.photoDao()) as T
     }

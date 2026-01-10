@@ -1,11 +1,15 @@
 package com.example.fittrack.data
 
 import android.content.Context
+import android.net.Uri
 import androidx.room.*
+import com.example.fittrack.R
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.time.LocalDate
 
 // 1) Catalog Model (assets JSON)
@@ -104,7 +108,8 @@ abstract class FitTrackDatabase : RoomDatabase() {
 // 5) Repository (아래에서 addToToday 변경)
 class TodoRepository(
     private val context: Context,
-    private val dao: TodayExerciseDao
+    private val dao: TodayExerciseDao,
+    private val photoRepository: PhotoRepository
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -122,9 +127,22 @@ class TodoRepository(
 
     fun observeToday(dateKey: String) = dao.observeToday(dateKey)
 
-    suspend fun cleanupNotToday(todayKey: String) {
+    suspend fun cleanupNotToday(todayKey: String) = withContext(Dispatchers.IO) {
+        val dates = dao.getAllExerciseDates().first()
+        for (date in dates) {
+            if (date != todayKey) {
+                val photos = photoRepository.getPhotosForDate(date).first()
+                if (photos.isEmpty()) {
+                    val drawableId = R.drawable.dumbel
+                    val uri = Uri.parse("android.resource://com.example.fittrack/" + drawableId)
+                    photoRepository.insertPhoto(uri, date)
+                }
+            }
+        }
+
         dao.deleteNotToday(todayKey)
     }
+
 
     suspend fun addToToday(
         ex: Exercise,

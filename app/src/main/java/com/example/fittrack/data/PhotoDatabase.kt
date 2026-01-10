@@ -1,6 +1,7 @@
 package com.example.fittrack.data
 
 import android.content.Context
+import android.net.Uri
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Delete
@@ -12,7 +13,9 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
 @Entity(tableName = "photos", indices = [Index(value = ["date"], unique = true)])
 data class Photo(
@@ -58,6 +61,20 @@ abstract class PhotoDatabase : RoomDatabase() {
                 INSTANCE = instance
                 instance
             }
+        }
+    }
+}
+
+class PhotoRepository(private val photoDao: PhotoDao) {
+    suspend fun getPhotosForDate(date: String): Flow<List<Photo>> {
+        return withContext(Dispatchers.IO) {
+            photoDao.getPhotoForDate(date)
+        }
+    }
+
+    suspend fun insertPhoto(uri: Uri, date: String) {
+        withContext(Dispatchers.IO) {
+            photoDao.insert(Photo(uri = uri.toString(), date = date, createdAt = System.currentTimeMillis()))
         }
     }
 }
