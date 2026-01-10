@@ -12,9 +12,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -41,72 +46,122 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun RecordScreen(
-    modifier: Modifier = Modifier,
-    viewModel: RecordViewModel
-) {
+fun RecordScreen(modifier: Modifier = Modifier, viewModel: RecordViewModel) {
+    val showCalendar by viewModel.showCalendar.collectAsState()
+
+    Scaffold {
+        paddingValues ->
+        Column(modifier = Modifier.padding(paddingValues)) {
+            TabRow(selectedTabIndex = if (showCalendar) 0 else 1) {
+                Tab(selected = showCalendar, onClick = { viewModel.setShowCalendar(true) }, text = { Text("달력") })
+                Tab(selected = !showCalendar, onClick = { viewModel.setShowCalendar(false) }, text = { Text("전체 사진") })
+            }
+
+            if (showCalendar) {
+                CalendarView(viewModel = viewModel)
+            } else {
+                AllPhotosView(viewModel = viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun CalendarView(viewModel: RecordViewModel) {
     val photos by viewModel.photosForSelectedDate.collectAsState()
     val markedDates by viewModel.markedDates.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val exercises by viewModel.exercisesForSelectedDate.collectAsState()
 
-    Scaffold {
-        paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues)) {
-            RecordCalendar(markedDates = markedDates, onDateSelected = { date -> viewModel.onDateSelected(date) })
+    Column {
+        RecordCalendar(markedDates = markedDates, onDateSelected = { date -> viewModel.onDateSelected(date) })
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                )
-                val photo = photos.firstOrNull()
-                if (photo != null) {
-                    Button(onClick = { viewModel.deletePhoto(photo) }) {
-                        Text("사진 삭제")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            )
+            val photo = photos.firstOrNull()
+            if (photo != null) {
+                Button(onClick = { viewModel.deletePhoto(photo) }) {
+                    Text("사진 삭제")
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            item {
+                ExerciseListView(exercises = exercises)
+            }
+
+            val photo = photos.firstOrNull()
+            if (photo != null && photo.uri.isNotEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 2)
+
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(photo.uri.toUri())
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(imageSize)
+                        )
                     }
                 }
             }
+        }
+    }
+}
 
-            LazyColumn(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                item {
-                    ExerciseListView(exercises = exercises)
-                }
+@Composable
+fun AllPhotosView(viewModel: RecordViewModel) {
+    val allPhotos by viewModel.allPhotos.collectAsState()
 
-                val photo = photos.firstOrNull()
-                if (photo != null && photo.uri.isNotEmpty()) {
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 2)
-
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(photo.uri.toUri())
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(imageSize)
-                            )
-                        }
-                    }
-                }
+    if (allPhotos.isEmpty()) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = "저장된 사진이 없습니다.")
+        }
+    } else {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            items(allPhotos) { photo ->
+                val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 3)
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(photo.uri.toUri())
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(imageSize)
+                )
             }
         }
     }

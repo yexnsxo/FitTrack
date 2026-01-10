@@ -30,11 +30,17 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     private val photoDao = PhotoDatabase.getDatabase(application).photoDao()
     private val exerciseDao = FitTrackDatabase.getInstance(application).todayExerciseDao()
 
+    private val _showCalendar = MutableStateFlow(true)
+    val showCalendar: StateFlow<Boolean> = _showCalendar.asStateFlow()
+
     private val _photoDates = MutableStateFlow<List<LocalDate>>(emptyList())
     val photoDates: StateFlow<List<LocalDate>> = _photoDates.asStateFlow()
 
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
+
+    val allPhotos: StateFlow<List<Photo>> = photoDao.getAllPhotos()
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
 
     val exercisesForSelectedDate: StateFlow<List<TodayExerciseEntity>> =
         combine(selectedDate, photoDates) { date, photoDates ->
@@ -74,6 +80,10 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
 
     fun onDateSelected(date: LocalDate) {
         _selectedDate.value = date
+    }
+
+    fun setShowCalendar(show: Boolean) {
+        _showCalendar.value = show
     }
 
     fun addPhoto(uri: Uri?) {
