@@ -11,6 +11,10 @@ import kotlinx.coroutines.launch
 
 class TimerViewModel : ViewModel() {
 
+    // 운동 시작 상태
+    private val _isWorkoutStarted = MutableStateFlow(false)
+    val isWorkoutStarted: StateFlow<Boolean> = _isWorkoutStarted.asStateFlow()
+
     // 휴식 타이머 상태
     private val _totalTime = MutableStateFlow(60L) // 총 휴식 시간 (초)
     val totalTime: StateFlow<Long> = _totalTime.asStateFlow()
@@ -33,15 +37,18 @@ class TimerViewModel : ViewModel() {
     private val _reps = MutableStateFlow(0)
     val reps: StateFlow<Int> = _reps.asStateFlow()
 
-    // 각 세트별 횟수를 저장하는 리스트
     private val _setReps = MutableStateFlow<List<Int>>(listOf())
     val setReps: StateFlow<List<Int>> = _setReps.asStateFlow()
 
     init {
         _setReps.value = List(_totalSets.value) { 0 }
+        _reps.value = _setReps.value.getOrElse(0) { 0 }
     }
 
-    // --- 타이머 함수 ---
+    fun startWorkout() {
+        _isWorkoutStarted.value = true
+    }
+
     fun setRestTime(seconds: Long) {
         if (!isTimerRunning.value) {
             _totalTime.value = seconds
@@ -52,18 +59,13 @@ class TimerViewModel : ViewModel() {
     private fun advanceToNextSet() {
         if (_currentSet.value < _totalSets.value) {
             _currentSet.value++
+            _reps.value = _setReps.value.getOrElse(_currentSet.value - 1) { 0 }
         }
-        _reps.value = 0
     }
 
     private fun startRest() {
-        if (_isTimerRunning.value) return
-
         _remainingTime.value = _totalTime.value
-        if (_remainingTime.value <= 0) {
-            advanceToNextSet()
-            return
-        }
+        if (_remainingTime.value <= 0) return
 
         _isTimerRunning.value = true
         timerJob?.cancel()
@@ -73,7 +75,6 @@ class TimerViewModel : ViewModel() {
                 _remainingTime.value--
             }
             _isTimerRunning.value = false
-            advanceToNextSet()
         }
     }
 
@@ -81,11 +82,8 @@ class TimerViewModel : ViewModel() {
         timerJob?.cancel()
         _isTimerRunning.value = false
         _remainingTime.value = _totalTime.value
-        advanceToNextSet()
     }
 
-
-    // --- 세트 & 횟수 함수 ---
     fun setTotalSets(count: Int) {
         if (count > 0) {
             _totalSets.value = count
@@ -97,42 +95,60 @@ class TimerViewModel : ViewModel() {
         }
     }
 
-    fun incrementReps() {
-        _reps.value++
-    }
-
-    fun decrementReps() {
-        if (_reps.value > 0) {
-            _reps.value--
-        }
-    }
-
-    fun incrementRepsByFive() {
-        _reps.value += 5
-    }
-
-    fun decrementRepsByFive() {
-        _reps.value = (_reps.value - 5).coerceAtLeast(0)
-    }
-
     fun finishSet() {
         if (_currentSet.value <= _totalSets.value) {
             val updatedReps = _setReps.value.toMutableList()
-            updatedReps[_currentSet.value - 1] = _reps.value
-            _setReps.value = updatedReps
+            if (_currentSet.value - 1 < updatedReps.size) {
+                updatedReps[_currentSet.value - 1] = _reps.value
+                _setReps.value = updatedReps
+            }
         }
 
         if (_currentSet.value < _totalSets.value) {
+            advanceToNextSet()
             startRest()
+        } else if (_currentSet.value == _totalSets.value) {
+            _currentSet.value++ // Mark as complete
+            stopRest()
         }
     }
 
     fun resetWorkout() {
         timerJob?.cancel()
         _isTimerRunning.value = false
+        _isWorkoutStarted.value = false
         _remainingTime.value = _totalTime.value
         _currentSet.value = 1
         _reps.value = 0
         _setReps.value = List(_totalSets.value) { 0 }
+    }
+
+    fun setRepsForSet(set: Int, reps: Int) {
+        if (set > 0 && set <= _setReps.value.size) {
+            val updatedReps = _setReps.value.toMutableList()
+            updatedReps[set - 1] = reps
+            _setReps.value = updatedReps
+            if (set == _currentSet.value) {
+                _reps.value = reps
+            }
+        }
+    }
+
+    fun resetToSet(set: Int) {
+        if (set > 0 && set <= _totalSets.value) {
+            timerJob?.cancel()
+            _isTimerRunning.value = false
+            _remainingTime.value = _totalTime.value
+
+            _currentSet.value = set
+            val updatedReps = _setReps.value.toMutableList()
+            for (i in (set - 1) until _totalSets.value) {
+                if (i < updatedReps.size) {
+                    updatedReps[i] = 0
+                }
+            }
+            _setReps.value = updatedReps
+            _reps.value = _setReps.value.getOrElse(set - 1) { 0 }
+        }
     }
 }
