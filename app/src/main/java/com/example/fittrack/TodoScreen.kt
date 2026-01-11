@@ -78,40 +78,47 @@ fun TodoScreen(
     var showPhotoDialog by remember { mutableStateOf(false) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) {
-            imageUri?.let { recordViewModel.addPhoto(it) }
+    val cameraLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success) {
+                imageUri?.let { recordViewModel.addPhoto(it) }
+            }
+            navController.navigate("record")
         }
-        navController.navigate("record")
-    }
 
-    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            recordViewModel.addPhoto(it)
+    val galleryLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                recordViewModel.addPhoto(it)
+            }
+            navController.navigate("record")
         }
-        navController.navigate("record")
-    }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) {
-            val newImageFile = createImageFile(context)
-            val newImageUri = FileProvider.getUriForFile(context, "com.example.fittrack.provider", newImageFile)
-            imageUri = newImageUri
-            cameraLauncher.launch(newImageUri)
-        } else {
-            // Handle permission denial
+    val permissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                val newImageFile = createImageFile(context)
+                val newImageUri = FileProvider.getUriForFile(
+                    context,
+                    "com.example.fittrack.provider",
+                    newImageFile
+                )
+                imageUri = newImageUri
+                cameraLauncher.launch(newImageUri)
+            } else {
+                // Handle permission denial
+            }
         }
-    }
 
     val pendingAddState = remember { mutableStateOf<Exercise?>(null) }
     val showDirectAddState = remember { mutableStateOf(false) }
     val editingCustomEx = remember { mutableStateOf<Exercise?>(null) } // ✅ 커스텀 운동 수정용
 
-    Box(modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
@@ -130,9 +137,20 @@ fun TodoScreen(
                     items = todayList,
                     onToggle = { item, checked -> vm.toggleCompleted(item.rowId, checked) },
                     onDelete = { item -> vm.deleteTodayRow(item.rowId) },
-                    onEditStrength = { item, sets, reps -> vm.updateTodayRowStrength(item, sets, reps) },
-                    onEditDuration = { item, sets, minutes -> vm.updateTodayRowDuration(item, sets, minutes) }
-                    // ❌ onDeleteCustom, onEditCustom은 여기에 있으면 안 됩니다.
+                    onEditStrength = { item, sets, reps ->
+                        vm.updateTodayRowStrength(
+                            item,
+                            sets,
+                            reps
+                        )
+                    },
+                    onEditDuration = { item, sets, minutes ->
+                        vm.updateTodayRowDuration(
+                            item,
+                            sets,
+                            minutes
+                        )
+                    }
                 )
             }
 
@@ -151,7 +169,6 @@ fun TodoScreen(
                 ExerciseCatalogCard(
                     exercises = filteredCatalog,
                     onAdd = { ex -> pendingAddState.value = ex },
-                    // ✅ 커스텀 운동 수정/삭제 버튼 연결
                     onEditCustom = { ex -> editingCustomEx.value = ex },
                     onDeleteCustom = { ex -> vm.deleteCustomExercise(ex) },
                     onOpenDirectAdd = { showDirectAddState.value = true }
@@ -159,8 +176,7 @@ fun TodoScreen(
             }
         }
 
-        // ✅ 1. "오늘 운동에 추가" 모달
-        pendingAddState.value?.let { pending ->
+        // ✅ "오늘 운동 남기기" 및 사진 관련 다이얼로그 (운동 완료 후 기록 시)
         if (showInitialDialog) {
             AlertDialog(
                 onDismissRequest = { showInitialDialog = false },
@@ -218,8 +234,8 @@ fun TodoScreen(
             )
         }
 
-        val pending = pendingAddState.value
-        if (pending != null) {
+        // ✅ 1. "오늘 운동에 추가" 모달 (카탈로그에서 운동 선택 시)
+        pendingAddState.value?.let { pending ->
             AddExerciseDialog(
                 exercise = pending,
                 onDismiss = { pendingAddState.value = null },
@@ -329,16 +345,16 @@ fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int) {
                 .fillMaxWidth()
                 .background(bg, shape)
                 .padding(16.dp),
-        )  {
+        ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                text = "오늘의 운동",
-                color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
+                    text = "오늘의 운동",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -411,7 +427,12 @@ fun CategoryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
     ) {
         Column(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+            modifier = Modifier.padding(
+                start = 16.dp,
+                end = 16.dp,
+                top = 12.dp,
+                bottom = 16.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("카테고리", fontWeight = FontWeight.SemiBold, fontSize = 20.sp)

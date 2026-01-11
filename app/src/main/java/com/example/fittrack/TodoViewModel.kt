@@ -107,62 +107,34 @@ class TodoViewModel(
         }
     }
 
-    // ✅ 커스텀 운동 수정
     fun updateCustomExercise(ex: Exercise) {
         viewModelScope.launch {
             repo.upsertCustomExercise(ex)
         }
     }
 
-    // ✅ 커스텀 운동 삭제 실제 로직 연결
     fun deleteCustomExercise(ex: Exercise) {
         viewModelScope.launch {
-            repo.deleteCustomExercise(ex.id) // ✅ 플레이스홀더를 실제 Repository 호출로 교체
+            repo.deleteCustomExercise(ex.id)
         }
     }
 
-    // ✅ 횟수 기반 추가
-    fun addExerciseToTodayWithSelection(
-        ex: Exercise,
-        sets: Int,
-        repsPerSet: Int
-    ) {
+    fun addExerciseToTodayWithSelection(ex: Exercise, sets: Int, repsPerSet: Int) {
         viewModelScope.launch {
             val calories = calcCalories(ex, sets = sets, repsPerSet = repsPerSet, durationMin = null)
-            repo.addToToday(
-                ex = ex,
-                dateKey = todayKey,
-                sets = sets,
-                repsPerSet = repsPerSet,
-                duration = null,
-                calories = calories
-            )
+            repo.addToToday(ex, todayKey, sets, repsPerSet, null, calories)
         }
     }
 
-    // ✅ 시간 기반 추가 (sets 추가)
     fun addExerciseToTodayWithDuration(ex: Exercise, sets: Int, durationMin: Int) {
         viewModelScope.launch {
             val calories = calcCalories(ex, sets = sets, repsPerSet = null, durationMin = durationMin)
-            repo.addToToday(
-                ex = ex,
-                dateKey = todayKey,
-                sets = sets,
-                repsPerSet = null,
-                duration = durationMin,
-                calories = calories
-            )
+            repo.addToToday(ex, todayKey, sets, null, durationMin, calories)
         }
     }
 
-    private fun calcCalories(
-        ex: Exercise,
-        sets: Int?,
-        repsPerSet: Int?,
-        durationMin: Int?
-    ): Int {
+    private fun calcCalories(ex: Exercise, sets: Int?, repsPerSet: Int?, durationMin: Int?): Int {
         val s = (sets ?: 1).toDouble()
-        // repsPerSet이 있으면 횟수 기반, 없으면 시간 기반
         return if (repsPerSet != null || (ex.category == "strength" && durationMin == null)) {
             val baseReps = 10.0
             val r = (repsPerSet ?: 10).toDouble()
@@ -185,38 +157,16 @@ class TodoViewModel(
     fun updateTodayRowStrength(item: TodayExerciseEntity, sets: Int, reps: Int) {
         viewModelScope.launch {
             val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
-            val kcal = if (base != null) {
-                calcCalories(base, sets, reps, null)
-            } else {
-                item.calories
-            }
-
-            repo.updateTodayAmounts(
-                rowId = item.rowId,
-                sets = sets,
-                repsPerSet = reps,
-                duration = null,
-                calories = kcal
-            )
+            val kcal = if (base != null) calcCalories(base, sets, reps, null) else item.calories
+            repo.updateTodayAmounts(item.rowId, sets, reps, null, kcal)
         }
     }
 
     fun updateTodayRowDuration(item: TodayExerciseEntity, sets: Int, minutes: Int) {
         viewModelScope.launch {
             val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
-            val kcal = if (base != null) {
-                calcCalories(base, sets, null, minutes)
-            } else {
-                item.calories
-            }
-
-            repo.updateTodayAmounts(
-                rowId = item.rowId,
-                sets = sets,
-                repsPerSet = null,
-                duration = minutes,
-                calories = kcal
-            )
+            val kcal = if (base != null) calcCalories(base, sets, null, minutes) else item.calories
+            repo.updateTodayAmounts(item.rowId, sets, null, minutes, kcal)
         }
     }
 }
@@ -226,14 +176,16 @@ class TodoViewModelFactory(
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         val db = FitTrackDatabase.getInstance(appContext)
+        val photoDb = PhotoDatabase.getDatabase(appContext)
+        val photoRepo = PhotoRepository(photoDb.photoDao())
+        
         val repo = TodoRepository(
             appContext,
             db.todayExerciseDao(),
-            db.customExerciseDao()
+            db.customExerciseDao(),
+            photoRepo
         )
-        val photoDb = PhotoDatabase.getDatabase(appContext)
-        val photoRepository = PhotoRepository(photoDb.photoDao())
-        val repo = TodoRepository(appContext, db.todayExerciseDao(), photoRepository)
+        
         @Suppress("UNCHECKED_CAST")
         return TodoViewModel(repo, photoDb.photoDao()) as T
     }

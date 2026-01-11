@@ -119,7 +119,7 @@ abstract class FitTrackDatabase : RoomDatabase() {
 class TodoRepository(
     private val context: Context,
     private val dao: TodayExerciseDao,
-    private val customDao: CustomExerciseDao
+    private val customDao: CustomExerciseDao,
     private val photoRepository: PhotoRepository
 ) {
     private val json = Json { ignoreUnknownKeys = true }
