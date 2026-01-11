@@ -1,33 +1,29 @@
 package com.example.fittrack
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 class TimerViewModel : ViewModel() {
 
-    // 운동 시작 상태
+    private var timerService: TimerService? = null
+    private var isBound = false
+
     private val _isWorkoutStarted = MutableStateFlow(false)
     val isWorkoutStarted: StateFlow<Boolean> = _isWorkoutStarted.asStateFlow()
 
-    // 휴식 타이머 상태
-    private val _totalTime = MutableStateFlow(60) // 총 휴식 시간 (초)
+    private val _totalTime = MutableStateFlow(60)
     val totalTime: StateFlow<Int> = _totalTime.asStateFlow()
 
-    private val _remainingTime = MutableStateFlow(60) // 남은 휴식 시간
-    val remainingTime: StateFlow<Int> = _remainingTime.asStateFlow()
+    val remainingTime: StateFlow<Int> get() = timerService?.remainingTime ?: MutableStateFlow(0)
+    val isTimerRunning: StateFlow<Boolean> get() = timerService?.isResting ?: MutableStateFlow(false)
 
-    private val _isTimerRunning = MutableStateFlow(false)
-    val isTimerRunning: StateFlow<Boolean> = _isTimerRunning.asStateFlow()
-
-    private var timerJob: Job? = null
-
-    // 세트 & 횟수 상태
     private val _totalSets = MutableStateFlow(5)
     val totalSets: StateFlow<Int> = _totalSets.asStateFlow()
 
@@ -46,37 +42,37 @@ class TimerViewModel : ViewModel() {
     }
 
     fun setRestTime(seconds: Int) {
-        if (!isTimerRunning.value) {
+        if (timerService?.isResting?.value == false) {
             _totalTime.value = seconds
-            _remainingTime.value = seconds
         }
     }
 
     private fun advanceToNextSet() {
-        if (_currentSet.value < _totalSets.value) {
+        if (_currentSet.value <= _totalSets.value) {
             _currentSet.value++
         }
     }
 
     private fun startRest() {
-        _remainingTime.value = _totalTime.value
-        if (_remainingTime.value <= 0) return
-
-        _isTimerRunning.value = true
-        timerJob?.cancel()
-        timerJob = viewModelScope.launch {
-            while (_remainingTime.value > 0) {
-                delay(1000)
-                _remainingTime.value--
-            }
-            _isTimerRunning.value = false
-        }
+        timerService?.startRest(_totalTime.value)
     }
 
     fun stopRest() {
-        timerJob?.cancel()
-        _isTimerRunning.value = false
-        _remainingTime.value = _totalTime.value
+        timerService?.stopRest()
+    }
+
+    fun finishSet() {
+        if (_currentSet.value <= _totalSets.value) {
+            advanceToNextSet()
+            startRest()
+        }
+    }
+
+    fun resetWorkout() {
+        stopRest()
+        _isWorkoutStarted.value = false
+        _currentSet.value = 1
+        _setReps.value = List(_totalSets.value) { 10 }
     }
 
     fun setTotalSets(count: Int) {
@@ -90,25 +86,6 @@ class TimerViewModel : ViewModel() {
         }
     }
 
-    fun finishSet() {
-        if (_currentSet.value < _totalSets.value) {
-            advanceToNextSet()
-            startRest()
-        } else if (_currentSet.value == _totalSets.value) {
-            _currentSet.value++ // Mark as complete
-            stopRest()
-        }
-    }
-
-    fun resetWorkout() {
-        timerJob?.cancel()
-        _isTimerRunning.value = false
-        _isWorkoutStarted.value = false
-        _remainingTime.value = _totalTime.value
-        _currentSet.value = 1
-        _setReps.value = List(_totalSets.value) { 10 }
-    }
-
     fun setRepsForSet(set: Int, reps: Int) {
         if (set > 0 && set <= _setReps.value.size) {
             val updatedReps = _setReps.value.toMutableList()
@@ -119,11 +96,9 @@ class TimerViewModel : ViewModel() {
 
     fun resetToSet(set: Int) {
         if (set > 0 && set <= _totalSets.value) {
-            timerJob?.cancel()
-            _isTimerRunning.value = false
-            _remainingTime.value = _totalTime.value
-
+            stopRest()
             _currentSet.value = set
+            _isWorkoutStarted.value = true
             val updatedReps = _setReps.value.toMutableList()
             for (i in (set - 1) until _totalSets.value) {
                 if (i < updatedReps.size) {
@@ -132,5 +107,35 @@ class TimerViewModel : ViewModel() {
             }
             _setReps.value = updatedReps
         }
+    }
+
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(className: ComponentName, service: IBinder) {
+            val binder = service as TimerService.TimerBinder
+            timerService = binder.getService()
+            binder.setViewModel(this@TimerViewModel)
+            isBound = true
+        }
+
+        override fun onServiceDisconnected(arg0: ComponentName) {
+            isBound = false
+        }
+    }
+
+    fun bindService(context: Context) {
+        Intent(context, TimerService::class.java).also { intent ->
+            context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        }
+    }
+
+    fun unbindService(context: Context) {
+        if (isBound) {
+            context.unbindService(connection)
+            isBound = false
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
     }
 }
