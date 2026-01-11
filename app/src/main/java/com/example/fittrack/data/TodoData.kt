@@ -1,12 +1,16 @@
 package com.example.fittrack.data
 
 import android.content.Context
+import android.net.Uri
 import androidx.room.*
+import com.example.fittrack.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
@@ -56,6 +60,9 @@ interface TodayExerciseDao {
     @Query("SELECT * FROM today_exercises WHERE dateKey = :dateKey ORDER BY rowId DESC")
     fun observeToday(dateKey: String): kotlinx.coroutines.flow.Flow<List<TodayExerciseEntity>>
 
+    @Query("SELECT DISTINCT dateKey FROM today_exercises")
+    fun getAllExerciseDates(): kotlinx.coroutines.flow.Flow<List<String>>
+
     @Insert
     suspend fun insert(item: TodayExerciseEntity)
 
@@ -65,10 +72,10 @@ interface TodayExerciseDao {
     @Query("DELETE FROM today_exercises WHERE rowId = :rowId")
     suspend fun deleteById(rowId: Long)
 
-    @Query("DELETE FROM today_exercises WHERE dateKey != :todayKey")
+    @Query("DELETE FROM today_exercises WHERE dateKey != :todayKey AND isCompleted = 0")
     suspend fun deleteNotToday(todayKey: String)
 
-    @Query("""UPDATE today_exercises SET sets = :sets, repsPerSet = :repsPerSet, duration = :duration, calories = :calories WHERE rowId = :rowId""")
+    @Query("UPDATE today_exercises SET sets = :sets, repsPerSet = :repsPerSet, duration = :duration, calories = :calories WHERE rowId = :rowId")
     suspend fun updateAmounts(rowId: Long, sets: Int?, repsPerSet: Int?, duration: Int?, calories: Int)
 
     // ✅ 커스텀 운동 정보 수정 시 투두 항목들도 동기화하기 위한 쿼리
@@ -113,6 +120,7 @@ class TodoRepository(
     private val context: Context,
     private val dao: TodayExerciseDao,
     private val customDao: CustomExerciseDao
+    private val photoRepository: PhotoRepository
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -162,6 +170,8 @@ class TodoRepository(
     }
 
     fun todayKey(): String = LocalDate.now().toString()
+    fun getAllExerciseDates(): kotlinx.coroutines.flow.Flow<List<String>> = dao.getAllExerciseDates()
+
 
     suspend fun loadCatalogFromAssets(): List<Exercise> = withContext(Dispatchers.IO) {
         val text = context.assets.open("exercise_database.json")
@@ -173,9 +183,22 @@ class TodoRepository(
 
     fun observeToday(dateKey: String) = dao.observeToday(dateKey)
 
-    suspend fun cleanupNotToday(todayKey: String) {
+    suspend fun cleanupNotToday(todayKey: String) = withContext(Dispatchers.IO) {
+        val dates = dao.getAllExerciseDates().first()
+        for (date in dates) {
+            if (date != todayKey) {
+                val photos = photoRepository.getPhotosForDate(date).first()
+                if (photos.isEmpty()) {
+                    val drawableId = R.drawable.dumbel
+                    val uri = Uri.parse("android.resource://com.example.fittrack/" + drawableId)
+                    photoRepository.insertPhoto(uri, date)
+                }
+            }
+        }
+
         dao.deleteNotToday(todayKey)
     }
+
 
     suspend fun addToToday(
         ex: Exercise,

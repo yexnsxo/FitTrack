@@ -8,6 +8,8 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -42,14 +43,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.fittrack.ui.theme.FitTrackTheme
 import com.example.fittrack.ui.theme.Main40
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
 
 enum class Destination(
     val route: String,
     val label: String,
     val icon: ImageVector,
-    val contentDescription: String
+    val contentDescription: String,
 ) {
     TODO("todo", "Todo", Icons.Filled.Check, ""),
     RECORD("record", "Record", Icons.Filled.CameraEnhance, "Record"),
@@ -58,7 +57,6 @@ enum class Destination(
 class MainActivity : ComponentActivity() {
 
     private val recordViewModel: RecordViewModel by viewModels { RecordViewModelFactory(application) }
-    // BUG FIX: TimerViewModel을 MainActivity에서 생성합니다.
     private val timerViewModel: TimerViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,24 +64,21 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FitTrackTheme {
-                // 참고: BottomNavigationBar와 MainScreen이 중복으로 호출되고 있습니다.
-                // 이는 UI가 겹쳐보이는 문제를 일으킬 수 있으므로, 추후 하나를 삭제하는 것을 권장합니다.
                 BottomNavigationBar(
                     modifier = Modifier.fillMaxSize(),
                     recordViewModel = recordViewModel,
-                    timerViewModel = timerViewModel // BUG FIX: 생성된 timerViewModel 전달
+                    timerViewModel = timerViewModel
                 )
                 MainScreen(
                     modifier = Modifier,
                     recordViewModel = recordViewModel,
-                    timerViewModel = timerViewModel // BUG FIX: 생성된 timerViewModel 전달
+                    timerViewModel = timerViewModel
                 )
             }
         }
     }
 }
 
-// BUG FIX: MainScreen이 timerViewModel을 받도록 수정합니다.
 @Composable
 fun MainScreen(modifier: Modifier, recordViewModel: RecordViewModel, timerViewModel: TimerViewModel) {
     val navController = rememberNavController()
@@ -119,7 +114,7 @@ fun MainScreen(modifier: Modifier, recordViewModel: RecordViewModel, timerViewMo
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding),
             recordViewModel = recordViewModel,
-            timerViewModel = timerViewModel // BUG FIX: AppNavHost에 timerViewModel 전달
+            timerViewModel = timerViewModel
         )
     }
 }
@@ -152,7 +147,6 @@ fun Header() {
     }
 }
 
-// BUG FIX: AppNavHost가 timerViewModel을 받도록 수정합니다.
 @Composable
 fun AppNavHost(
     navController: NavHostController,
@@ -169,9 +163,8 @@ fun AppNavHost(
         Destination.entries.forEach { destination ->
             composable(destination.route) {
                 when (destination) {
-                    Destination.TODO -> TodoScreen()
+                    Destination.TODO -> TodoScreen(navController = navController, recordViewModel = recordViewModel)
                     Destination.RECORD -> RecordScreen(viewModel = recordViewModel)
-                    // BUG FIX: TimerScreen에 timerViewModel을 전달합니다.
                     Destination.TIMER -> TimerScreen(viewModel = timerViewModel)
                 }
             }
@@ -179,7 +172,6 @@ fun AppNavHost(
     }
 }
 
-// BUG FIX: BottomNavigationBar가 timerViewModel을 받도록 수정합니다.
 @Composable
 fun BottomNavigationBar(
     modifier: Modifier = Modifier,
@@ -218,7 +210,7 @@ fun BottomNavigationBar(
             startDestination = startDestination,
             modifier = Modifier.padding(contentPadding),
             recordViewModel = recordViewModel,
-            timerViewModel = timerViewModel // BUG FIX: AppNavHost에 timerViewModel 전달
+            timerViewModel = timerViewModel
         )
     }
 }
