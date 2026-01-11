@@ -19,9 +19,9 @@ import kotlinx.coroutines.flow.StateFlow
 class TimerService : Service() {
 
     private val binder = TimerBinder()
-    private val serviceScope = CoroutineScope(Dispatchers.IO)
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var restTimerJob: Job? = null
-    private var totalWorkoutTimeJob: Job? = null
+    private var notificationUpdateJob: Job? = null
     private var viewModel: TimerViewModel? = null
 
     private val _remainingTime = MutableStateFlow(0)
@@ -29,9 +29,6 @@ class TimerService : Service() {
 
     private val _isResting = MutableStateFlow(false)
     val isResting: StateFlow<Boolean> get() = _isResting
-
-    private val _totalWorkoutTime = MutableStateFlow(0)
-    val totalWorkoutTime: StateFlow<Int> get() = _totalWorkoutTime
 
     companion object {
         const val CHANNEL_ID = "TimerServiceChannel"
@@ -56,7 +53,6 @@ class TimerService : Service() {
     }
 
     fun startWorkout() {
-        _totalWorkoutTime.value = 0
         val notification = createNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -64,31 +60,30 @@ class TimerService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        totalWorkoutTimeJob?.cancel()
-        totalWorkoutTimeJob = serviceScope.launch {
-            while (isActive) {
-                delay(1000)
-                _totalWorkoutTime.value++
+        notificationUpdateJob?.cancel()
+        notificationUpdateJob = serviceScope.launch {
+            viewModel?.totalWorkoutTime?.collect {
                 updateNotification()
             }
         }
     }
 
     fun stopWorkout() {
-        totalWorkoutTimeJob?.cancel()
+        notificationUpdateJob?.cancel()
         restTimerJob?.cancel()
         _isResting.value = false
         _remainingTime.value = 0
-        _totalWorkoutTime.value = 0
-        stopForeground(true)
+        stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
     fun startRest(totalTime: Int) {
+        if (_isResting.value) {
+            return
+        }
         _remainingTime.value = totalTime
         _isResting.value = true
         updateNotification()
 
-        restTimerJob?.cancel()
         restTimerJob = serviceScope.launch {
             while (_remainingTime.value > 0) {
                 delay(1000)
@@ -116,6 +111,8 @@ class TimerService : Service() {
         val title: String
         val contentText: String
 
+        val totalWorkoutTime = viewModel?.totalWorkoutTime?.value ?: 0
+
         if (_isResting.value) {
             title = "휴식 중"
             contentText = "남은 시간: ${formatTime(_remainingTime.value)}"
@@ -123,7 +120,7 @@ class TimerService : Service() {
             val currentSet = viewModel?.currentSet?.value ?: 1
             val totalSets = viewModel?.totalSets?.value ?: 1
             title = "운동 중"
-            contentText = "현재 ${currentSet}세트 / 총 ${totalSets}세트 | 총 시간: ${formatTime(_totalWorkoutTime.value)}"
+            contentText = "현재 ${currentSet}세트 / 총 ${totalSets}세트 | 총 시간: ${formatTime(totalWorkoutTime)}"
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -163,5 +160,10 @@ class TimerService : Service() {
         fun setViewModel(viewModel: TimerViewModel) {
             this@TimerService.viewModel = viewModel
         }
+    }
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
     }
 }

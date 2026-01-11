@@ -24,12 +24,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fittrack.ui.theme.Main40
 import kotlinx.coroutines.delay
 
 @Composable
-fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
+fun TimerScreen(viewModel: TimerViewModel) {
 
     val context = LocalContext.current
     DisposableEffect(Unit) {
@@ -204,14 +203,7 @@ fun StatsCards(viewModel: TimerViewModel) {
     val totalSets by viewModel.totalSets.collectAsState()
     val currentSet by viewModel.currentSet.collectAsState()
     val setReps by viewModel.setReps.collectAsState()
-    var totalWorkoutTime by remember { mutableStateOf(0) }
-
-    LaunchedEffect(Unit) { // Simplified timer for display
-        while (true) {
-            delay(1000)
-            totalWorkoutTime++
-        }
-    }
+    val totalWorkoutTime by viewModel.totalWorkoutTime.collectAsState()
 
     val completedSets = (currentSet - 1).coerceAtLeast(0)
     val totalReps = setReps.take(completedSets).sum()

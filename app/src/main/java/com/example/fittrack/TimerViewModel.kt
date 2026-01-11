@@ -6,14 +6,19 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class TimerViewModel : ViewModel() {
 
     private var timerService: TimerService? = null
     private var isBound = false
+    private var totalWorkoutTimeJob: Job? = null
 
     private val _isWorkoutStarted = MutableStateFlow(false)
     val isWorkoutStarted: StateFlow<Boolean> = _isWorkoutStarted.asStateFlow()
@@ -23,7 +28,9 @@ class TimerViewModel : ViewModel() {
 
     val remainingTime: StateFlow<Int> get() = timerService?.remainingTime ?: MutableStateFlow(0)
     val isTimerRunning: StateFlow<Boolean> get() = timerService?.isResting ?: MutableStateFlow(false)
-    val totalWorkoutTime: StateFlow<Int> get() = timerService?.totalWorkoutTime ?: MutableStateFlow(0)
+
+    private val _totalWorkoutTime = MutableStateFlow(0)
+    val totalWorkoutTime: StateFlow<Int> = _totalWorkoutTime.asStateFlow()
 
 
     private val _totalSets = MutableStateFlow(5)
@@ -40,8 +47,16 @@ class TimerViewModel : ViewModel() {
     }
 
     fun startWorkout() {
+        if (_isWorkoutStarted.value) return
         _isWorkoutStarted.value = true
         timerService?.startWorkout()
+        totalWorkoutTimeJob?.cancel()
+        totalWorkoutTimeJob = viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                _totalWorkoutTime.value++
+            }
+        }
     }
 
     fun setRestTime(seconds: Int) {
@@ -75,6 +90,8 @@ class TimerViewModel : ViewModel() {
 
     fun resetWorkout() {
         stopRest()
+        totalWorkoutTimeJob?.cancel()
+        _totalWorkoutTime.value = 0
         _isWorkoutStarted.value = false
         _currentSet.value = 1
         _setReps.value = List(_totalSets.value) { 10 }
