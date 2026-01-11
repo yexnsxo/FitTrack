@@ -23,6 +23,8 @@ class TimerViewModel : ViewModel() {
 
     val remainingTime: StateFlow<Int> get() = timerService?.remainingTime ?: MutableStateFlow(0)
     val isTimerRunning: StateFlow<Boolean> get() = timerService?.isResting ?: MutableStateFlow(false)
+    val totalWorkoutTime: StateFlow<Int> get() = timerService?.totalWorkoutTime ?: MutableStateFlow(0)
+
 
     private val _totalSets = MutableStateFlow(5)
     val totalSets: StateFlow<Int> = _totalSets.asStateFlow()
@@ -39,6 +41,7 @@ class TimerViewModel : ViewModel() {
 
     fun startWorkout() {
         _isWorkoutStarted.value = true
+        timerService?.startWorkout()
     }
 
     fun setRestTime(seconds: Int) {
@@ -73,6 +76,7 @@ class TimerViewModel : ViewModel() {
         _isWorkoutStarted.value = false
         _currentSet.value = 1
         _setReps.value = List(_totalSets.value) { 10 }
+        timerService?.stopWorkout()
     }
 
     fun setTotalSets(count: Int) {

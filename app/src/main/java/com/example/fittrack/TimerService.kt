@@ -20,7 +20,8 @@ class TimerService : Service() {
 
     private val binder = TimerBinder()
     private val serviceScope = CoroutineScope(Dispatchers.IO)
-    private var timerJob: Job? = null
+    private var restTimerJob: Job? = null
+    private var totalWorkoutTimeJob: Job? = null
     private var viewModel: TimerViewModel? = null
 
     private val _remainingTime = MutableStateFlow(0)
@@ -28,6 +29,9 @@ class TimerService : Service() {
 
     private val _isResting = MutableStateFlow(false)
     val isResting: StateFlow<Boolean> get() = _isResting
+
+    private val _totalWorkoutTime = MutableStateFlow(0)
+    val totalWorkoutTime: StateFlow<Int> get() = _totalWorkoutTime
 
     companion object {
         const val CHANNEL_ID = "TimerServiceChannel"
@@ -51,44 +55,79 @@ class TimerService : Service() {
         return binder
     }
 
+    fun startWorkout() {
+        _totalWorkoutTime.value = 0
+        val notification = createNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        totalWorkoutTimeJob?.cancel()
+        totalWorkoutTimeJob = serviceScope.launch {
+            while (isActive) {
+                delay(1000)
+                _totalWorkoutTime.value++
+                updateNotification()
+            }
+        }
+    }
+
+    fun stopWorkout() {
+        totalWorkoutTimeJob?.cancel()
+        restTimerJob?.cancel()
+        _isResting.value = false
+        _remainingTime.value = 0
+        _totalWorkoutTime.value = 0
+        stopForeground(true)
+    }
+
     fun startRest(totalTime: Int) {
         _remainingTime.value = totalTime
         _isResting.value = true
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, createNotification(totalTime), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NOTIFICATION_ID, createNotification(totalTime))
-        }
+        updateNotification()
 
-        timerJob?.cancel()
-        timerJob = serviceScope.launch {
+        restTimerJob?.cancel()
+        restTimerJob = serviceScope.launch {
             while (_remainingTime.value > 0) {
                 delay(1000)
                 _remainingTime.value--
                 updateNotification()
             }
             _isResting.value = false
-            stopForeground(STOP_FOREGROUND_DETACH)
+            updateNotification()
         }
     }
 
     fun stopRest() {
-        timerJob?.cancel()
+        restTimerJob?.cancel()
         _isResting.value = false
         _remainingTime.value = 0
-        stopForeground(true)
+        updateNotification()
     }
 
-    private fun createNotification(time: Int): Notification {
+    private fun createNotification(): Notification {
         val finishSetIntent = Intent(this, TimerService::class.java).apply {
             action = ACTION_FINISH_SET
         }
         val finishSetPendingIntent = PendingIntent.getService(this, 0, finishSetIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        val contentText = if (time > 0) "남은 시간: ${formatTime(time)}" else "휴식 완료!"
+        val title: String
+        val contentText: String
+
+        if (_isResting.value) {
+            title = "휴식 중"
+            contentText = "남은 시간: ${formatTime(_remainingTime.value)}"
+        } else {
+            val currentSet = viewModel?.currentSet?.value ?: 1
+            val totalSets = viewModel?.totalSets?.value ?: 1
+            title = "운동 중"
+            contentText = "현재 ${currentSet}세트 / 총 ${totalSets}세트 | 총 시간: ${formatTime(_totalWorkoutTime.value)}"
+        }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("휴식 중")
+            .setContentTitle(title)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .addAction(R.drawable.ic_launcher_foreground, "세트 완료", finishSetPendingIntent)
@@ -97,10 +136,8 @@ class TimerService : Service() {
     }
 
     private fun updateNotification() {
-        if(_isResting.value) {
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(NOTIFICATION_ID, createNotification(_remainingTime.value))
-        }
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(NOTIFICATION_ID, createNotification())
     }
 
     private fun createNotificationChannel() {

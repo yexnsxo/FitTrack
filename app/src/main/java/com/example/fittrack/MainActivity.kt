@@ -64,13 +64,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FitTrackTheme {
-                BottomNavigationBar(
-                    modifier = Modifier.fillMaxSize(),
-                    recordViewModel = recordViewModel,
-                    timerViewModel = timerViewModel
-                )
                 MainScreen(
-                    modifier = Modifier,
+                    modifier = Modifier.fillMaxSize(),
                     recordViewModel = recordViewModel,
                     timerViewModel = timerViewModel
                 )
@@ -163,54 +158,11 @@ fun AppNavHost(
         Destination.entries.forEach { destination ->
             composable(destination.route) {
                 when (destination) {
-                    Destination.TODO -> TodoScreen(navController = navController, recordViewModel = recordViewModel)
+                    Destination.TODO -> TodoScreen(navController = navController, recordViewModel = recordViewModel, timerViewModel = timerViewModel)
                     Destination.RECORD -> RecordScreen(viewModel = recordViewModel)
                     Destination.TIMER -> TimerScreen(viewModel = timerViewModel)
                 }
             }
         }
-    }
-}
-
-@Composable
-fun BottomNavigationBar(
-    modifier: Modifier = Modifier,
-    recordViewModel: RecordViewModel,
-    timerViewModel: TimerViewModel
-) {
-    val navController = rememberNavController()
-    val startDestination = Destination.TODO
-    var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
-
-    Scaffold(
-        modifier = modifier,
-        bottomBar = {
-            NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-                Destination.entries.forEachIndexed { index, destination ->
-                    NavigationBarItem(
-                        selected = selectedDestination == index,
-                        onClick = {
-                            navController.navigate(route = destination.route)
-                            selectedDestination = index
-                        },
-                        icon = {
-                            Icon(
-                                destination.icon,
-                                contentDescription = destination.contentDescription
-                            )
-                        },
-                        label = { Text(destination.label) }
-                    )
-                }
-            }
-        }
-    ) { contentPadding ->
-        AppNavHost(
-            navController = navController,
-            startDestination = startDestination,
-            modifier = Modifier.padding(contentPadding),
-            recordViewModel = recordViewModel,
-            timerViewModel = timerViewModel
-        )
     }
 }
