@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -68,10 +69,10 @@ fun Modifier.dashedBorder(
 @Composable
 fun TodayListCard(
     items: List<TodayExerciseEntity>,
-    onToggle: (rowId: Long, checked: Boolean) -> Unit,
-    onDelete: (rowId: Long) -> Unit,
-    onEditStrength: (TodayExerciseEntity, Int, Int) -> Unit,
-    onEditDuration: (TodayExerciseEntity, Int) -> Unit
+    onToggle: (TodayExerciseEntity, Boolean) -> Unit,
+    onDelete: (TodayExerciseEntity) -> Unit,
+    onEditStrength: (TodayExerciseEntity, Int, Int) -> Unit,     // sets, reps
+    onEditDuration: (TodayExerciseEntity, Int, Int) -> Unit      // sets, minutes  ✅ 세트 필수라서 3개
 ) {
     Text("오늘의 운동 목록", fontWeight = FontWeight.Bold, fontSize = 20.sp)
     Spacer(Modifier.height(8.dp))
@@ -125,10 +126,10 @@ fun TodayListCard(
         items.forEach { item ->
             TodayRow(
                 item = item,
-                onToggle = { checked -> onToggle(item.rowId, checked) },
-                onDelete = { onDelete(item.rowId) },
+                onToggle = { checked -> onToggle(item, checked) },
+                onDelete = { onDelete(item) },
                 onEditStrength = { sets, reps -> onEditStrength(item, sets, reps) },
-                onEditDuration = { minutes -> onEditDuration(item, minutes) }
+                onEditDuration = { sets, minutes -> onEditDuration(item, sets, minutes) }
             )
         }
     }
@@ -141,7 +142,7 @@ private fun TodayRow(
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
     onEditStrength: (sets: Int, reps: Int) -> Unit,
-    onEditDuration: (minutes: Int) -> Unit
+    onEditDuration: (sets: Int, minutes: Int) -> Unit
 ) {
     val selected = item.isCompleted
     val editOpen = remember { mutableStateOf(false) }
@@ -167,17 +168,20 @@ private fun TodayRow(
                 Spacer(Modifier.width(14.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    // ✅ FlowRow를 사용하여 운동명이 길면 태그들이 아래로 내려가게 함
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
                             text = item.name,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF111827)
+                            color = Color(0xFF111827),
+                            modifier = Modifier.align(Alignment.CenterVertically)
                         )
-                        Spacer(Modifier.width(2.dp))
+                        Spacer(Modifier.width(1.5.dp))
                         CategoryPill(
                             emoji = when (item.category) {
                                 "strength" -> "💪"
@@ -201,10 +205,10 @@ private fun TodayRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (item.sets != null) {
+                        if (item.repsPerSet != null) {
                             Text(text = "${item.sets}세트 ${item.repsPerSet}회", fontSize = 15.sp)
                         } else if (item.duration != null) {
-                            Text(text = "${item.duration}분")
+                            Text(text = "${item.sets}세트 ${item.duration}분", fontSize = 15.sp)
                         }
 
                         Text(
@@ -249,8 +253,8 @@ private fun TodayRow(
                 onEditStrength(sets, reps)
                 editOpen.value = false
             },
-            onConfirmDuration = { minutes ->
-                onEditDuration(minutes)
+            onConfirmDuration = { sets, minutes ->
+                onEditDuration(sets, minutes)
                 editOpen.value = false
             }
         )
@@ -292,11 +296,10 @@ private fun CategoryPill(emoji: String, text: String) {
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFFF3F4F6))
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(emoji, fontSize = 16.sp)
-            Spacer(Modifier.width(6.dp))
             Text(text, fontSize = 14.sp, color = Color(0xFF374151), fontWeight = FontWeight.SemiBold)
         }
     }
@@ -315,7 +318,7 @@ private fun DifficultyPill(difficulty: String) {
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
             .background(color.copy(alpha = 0.12f))
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
     ) {
         Text(label, fontSize = 14.sp, color = color, fontWeight = FontWeight.Bold)
     }

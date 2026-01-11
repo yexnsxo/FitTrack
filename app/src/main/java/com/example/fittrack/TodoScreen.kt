@@ -108,22 +108,31 @@ fun TodoScreen(
     }
 
     val pendingAddState = remember { mutableStateOf<Exercise?>(null) }
+    val showDirectAddState = remember { mutableStateOf(false) }
+    val editingCustomEx = remember { mutableStateOf<Exercise?>(null) } // ✅ 커스텀 운동 수정용
 
-    Box(Modifier.fillMaxSize()) {
+    Box(modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            item { ProgressOverview(completedCount = progress.completedCount, totalCount = progress.totalCount, caloriesSum = progress.caloriesSum) }
+            item {
+                ProgressOverview(
+                    completedCount = progress.completedCount,
+                    totalCount = progress.totalCount,
+                    caloriesSum = progress.caloriesSum
+                )
+            }
 
             item {
                 TodayListCard(
                     items = todayList,
-                    onToggle = vm::toggleCompleted,
-                    onDelete = vm::deleteTodayRow,
-                    onEditStrength = vm::updateTodayRowStrength,
-                    onEditDuration = vm::updateTodayRowDuration
+                    onToggle = { item, checked -> vm.toggleCompleted(item.rowId, checked) },
+                    onDelete = { item -> vm.deleteTodayRow(item.rowId) },
+                    onEditStrength = { item, sets, reps -> vm.updateTodayRowStrength(item, sets, reps) },
+                    onEditDuration = { item, sets, minutes -> vm.updateTodayRowDuration(item, sets, minutes) }
+                    // ❌ onDeleteCustom, onEditCustom은 여기에 있으면 안 됩니다.
                 )
             }
 
@@ -141,13 +150,17 @@ fun TodoScreen(
             item {
                 ExerciseCatalogCard(
                     exercises = filteredCatalog,
-                    onAdd = { ex ->
-                        pendingAddState.value = ex
-                    }
+                    onAdd = { ex -> pendingAddState.value = ex },
+                    // ✅ 커스텀 운동 수정/삭제 버튼 연결
+                    onEditCustom = { ex -> editingCustomEx.value = ex },
+                    onDeleteCustom = { ex -> vm.deleteCustomExercise(ex) },
+                    onOpenDirectAdd = { showDirectAddState.value = true }
                 )
             }
         }
 
+        // ✅ 1. "오늘 운동에 추가" 모달
+        pendingAddState.value?.let { pending ->
         if (showInitialDialog) {
             AlertDialog(
                 onDismissRequest = { showInitialDialog = false },
@@ -214,9 +227,36 @@ fun TodoScreen(
                     vm.addExerciseToTodayWithSelection(pending, sets, reps)
                     pendingAddState.value = null
                 },
-                onConfirmDuration = { minutes ->
-                    vm.addExerciseToTodayWithDuration(pending, minutes)
+                onConfirmDuration = { sets, minutes ->
+                    vm.addExerciseToTodayWithDuration(pending, sets, minutes)
                     pendingAddState.value = null
+                }
+            )
+        }
+
+        // ✅ 2. "운동 직접 추가" 모달 (신규 생성용)
+        if (showDirectAddState.value) {
+            AddCustomExerciseDialog(
+                onDismiss = { showDirectAddState.value = false },
+                onConfirm = { newExercise ->
+                    vm.addCustomExerciseToCatalog(newExercise)
+                    showDirectAddState.value = false
+                }
+            )
+        }
+
+        // ✅ 3. "커스텀 운동 정보 수정" 모달 (목록 수정용)
+        editingCustomEx.value?.let { ex ->
+            AddCustomExerciseDialog(
+                initialExercise = ex,
+                onDismiss = { editingCustomEx.value = null },
+                onConfirm = { updated ->
+                    vm.updateCustomExercise(updated)
+                    editingCustomEx.value = null
+                },
+                onDelete = { toDelete ->
+                    vm.deleteCustomExercise(toDelete)
+                    editingCustomEx.value = null
                 }
             )
         }
