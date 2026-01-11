@@ -34,6 +34,10 @@ class TodoViewModel(
     private val _catalog = MutableStateFlow<List<Exercise>>(emptyList())
     val catalog: StateFlow<List<Exercise>> = _catalog.asStateFlow()
 
+    val customCatalog: StateFlow<List<Exercise>> =
+        repo.observeCustomCatalog()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _selectedCategory = MutableStateFlow(CategoryFilter.ALL)
     val selectedCategory: StateFlow<CategoryFilter> = _selectedCategory.asStateFlow()
 
@@ -41,9 +45,14 @@ class TodoViewModel(
         repo.observeToday(todayKey)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val catalogAll: StateFlow<List<Exercise>> =
+        combine(catalog, customCatalog) { base, custom ->
+            (base + custom).distinctBy { it.id }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val filteredCatalog: StateFlow<List<Exercise>> =
-        combine(catalog, selectedCategory) { list, cat ->
-            if (cat == CategoryFilter.ALL) list else list.filter { it.category == cat.key }
+        combine(catalogAll, selectedCategory) { list, cat ->
+            if (cat.key == null) list else list.filter { it.category == cat.key }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val progress: StateFlow<ProgressUi> =
@@ -51,7 +60,7 @@ class TodoViewModel(
             .map { list ->
                 val completed = list.filter { it.isCompleted }
                 ProgressUi(
-                    completedCount = list.count { it.isCompleted },
+                    completedCount = completed.size,
                     totalCount = list.size,
                     caloriesSum = completed.sumOf { it.calories }
                 )
@@ -69,7 +78,27 @@ class TodoViewModel(
         _selectedCategory.value = cat
     }
 
-    // ✅ 모달에서 선택한 값으로 추가
+    fun addCustomExerciseToCatalog(ex: Exercise) {
+        viewModelScope.launch {
+            repo.upsertCustomExercise(ex)
+        }
+    }
+
+    // ✅ 커스텀 운동 수정
+    fun updateCustomExercise(ex: Exercise) {
+        viewModelScope.launch {
+            repo.upsertCustomExercise(ex)
+        }
+    }
+
+    // ✅ 커스텀 운동 삭제 실제 로직 연결
+    fun deleteCustomExercise(ex: Exercise) {
+        viewModelScope.launch {
+            repo.deleteCustomExercise(ex.id) // ✅ 플레이스홀더를 실제 Repository 호출로 교체
+        }
+    }
+
+    // ✅ 횟수 기반 추가
     fun addExerciseToTodayWithSelection(
         ex: Exercise,
         sets: Int,
@@ -88,14 +117,14 @@ class TodoViewModel(
         }
     }
 
-    // ✅ 유산소/유연성용(원하면 사용)
-    fun addExerciseToTodayWithDuration(ex: Exercise, durationMin: Int) {
+    // ✅ 시간 기반 추가 (sets 추가)
+    fun addExerciseToTodayWithDuration(ex: Exercise, sets: Int, durationMin: Int) {
         viewModelScope.launch {
-            val calories = calcCalories(ex, sets = null, repsPerSet = null, durationMin = durationMin)
+            val calories = calcCalories(ex, sets = sets, repsPerSet = null, durationMin = durationMin)
             repo.addToToday(
                 ex = ex,
                 dateKey = todayKey,
-                sets = null,
+                sets = sets,
                 repsPerSet = null,
                 duration = durationMin,
                 calories = calories
@@ -103,27 +132,22 @@ class TodoViewModel(
         }
     }
 
-    // ✅ 칼로리 계산 (기준이 불명확해서 선형 스케일로 구현)
-    // - strength: ex.calories 를 "10회 1세트 기준"으로 보고 sets, reps에 비례
-    // - cardio/flex: ex.calories 를 "ex.duration 분 기준"으로 보고 duration에 비례
     private fun calcCalories(
         ex: Exercise,
         sets: Int?,
         repsPerSet: Int?,
         durationMin: Int?
     ): Int {
-        return when (ex.category) {
-            "strength" -> {
-                val baseReps = 10.0
-                val s = (sets ?: 1).toDouble()
-                val r = (repsPerSet ?: 10).toDouble()
-                (ex.calories * s * (r / baseReps)).roundToInt()
-            }
-            else -> {
-                val baseMin = (ex.duration ?: 5).toDouble()
-                val m = (durationMin ?: (ex.duration ?: 5)).toDouble()
-                (ex.calories * (m / baseMin)).roundToInt()
-            }
+        val s = (sets ?: 1).toDouble()
+        // repsPerSet이 있으면 횟수 기반, 없으면 시간 기반
+        return if (repsPerSet != null || (ex.category == "strength" && durationMin == null)) {
+            val baseReps = 10.0
+            val r = (repsPerSet ?: 10).toDouble()
+            (ex.calories * s * (r / baseReps)).roundToInt()
+        } else {
+            val baseMin = (ex.duration ?: 5).toDouble()
+            val m = (durationMin ?: (ex.duration ?: 5)).toDouble()
+            (ex.calories * s * (m / baseMin)).roundToInt()
         }.coerceAtLeast(0)
     }
 
@@ -137,13 +161,10 @@ class TodoViewModel(
 
     fun updateTodayRowStrength(item: TodayExerciseEntity, sets: Int, reps: Int) {
         viewModelScope.launch {
-            val base = catalog.value.firstOrNull { it.id == item.exerciseId }
-
+            val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
             val kcal = if (base != null) {
-                val baseReps = 10.0
-                (base.calories * sets * (reps / baseReps)).roundToInt()
+                calcCalories(base, sets, reps, null)
             } else {
-                // base 못 찾으면 기존 칼로리 유지(fallback)
                 item.calories
             }
 
@@ -157,20 +178,18 @@ class TodoViewModel(
         }
     }
 
-    fun updateTodayRowDuration(item: TodayExerciseEntity, minutes: Int) {
+    fun updateTodayRowDuration(item: TodayExerciseEntity, sets: Int, minutes: Int) {
         viewModelScope.launch {
-            val base = catalog.value.firstOrNull { it.id == item.exerciseId }
-
+            val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
             val kcal = if (base != null) {
-                val baseMin = (base.duration ?: 5).toDouble()
-                (base.calories * (minutes / baseMin)).roundToInt()
+                calcCalories(base, sets, null, minutes)
             } else {
                 item.calories
             }
 
             repo.updateTodayAmounts(
                 rowId = item.rowId,
-                sets = null,
+                sets = sets,
                 repsPerSet = null,
                 duration = minutes,
                 calories = kcal
@@ -184,7 +203,11 @@ class TodoViewModelFactory(
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         val db = FitTrackDatabase.getInstance(appContext)
-        val repo = TodoRepository(appContext, db.todayExerciseDao())
+        val repo = TodoRepository(
+            appContext,
+            db.todayExerciseDao(),
+            db.customExerciseDao()
+        )
         @Suppress("UNCHECKED_CAST")
         return TodoViewModel(repo) as T
     }

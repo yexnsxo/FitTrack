@@ -3,10 +3,12 @@ package com.example.fittrack.data
 import android.content.Context
 import androidx.room.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 // 1) Catalog Model (assets JSON)
 @Serializable
@@ -16,7 +18,8 @@ data class Exercise(
     val category: String,
     val sets: Int? = null,
     val duration: Int? = null,
-    val calories: Double, // ✅ JSON에 5.5, 6.5 등이 있어서 Double로
+    val repsPerSet: Int? = null,
+    val calories: Double,
     val difficulty: String,
     val description: String
 )
@@ -33,10 +36,10 @@ data class TodayExerciseEntity(
     val name: String,
     val category: String,
 
-    // ✅ 사용자가 선택한 값
-    val sets: Int? = null,
-    val repsPerSet: Int? = null,   // ✅ 추가 (세트당 횟수)
-    val duration: Int? = null,     // 유산소/유연성은 분 단위
+    // 사용자가 선택한 값
+    val sets: Int = 1,
+    val repsPerSet: Int? = null,
+    val duration: Int? = null,
 
     val calories: Int,
     val difficulty: String,
@@ -44,7 +47,7 @@ data class TodayExerciseEntity(
     val isCompleted: Boolean = false
 )
 
-// 3) DAO 동일 (변경 없음)
+// 3) DAO
 @Dao
 interface TodayExerciseDao {
     @Query("SELECT * FROM today_exercises WHERE dateKey = :dateKey ORDER BY rowId DESC")
@@ -67,16 +70,25 @@ interface TodayExerciseDao {
 
     @Query("""UPDATE today_exercises SET sets = :sets, repsPerSet = :repsPerSet, duration = :duration, calories = :calories WHERE rowId = :rowId""")
     suspend fun updateAmounts(rowId: Long, sets: Int?, repsPerSet: Int?, duration: Int?, calories: Int)
+
+    // ✅ 커스텀 운동 정보 수정 시 투두 항목들도 동기화하기 위한 쿼리
+    @Query("""
+        UPDATE today_exercises 
+        SET name = :name, category = :category, difficulty = :difficulty, description = :description 
+        WHERE exerciseId = :exerciseId
+    """)
+    suspend fun syncExerciseInfo(exerciseId: String, name: String, category: String, difficulty: String, description: String)
 }
 
 // 4) Database
 @Database(
-    entities = [TodayExerciseEntity::class],
-    version = 2, // ✅ schema 변경 -> version 올림
+    entities = [TodayExerciseEntity::class, CustomExerciseData::class],
+    version = 4,
     exportSchema = false
 )
 abstract class FitTrackDatabase : RoomDatabase() {
     abstract fun todayExerciseDao(): TodayExerciseDao
+    abstract fun customExerciseDao(): CustomExerciseDao
 
     companion object {
         @Volatile private var INSTANCE: FitTrackDatabase? = null
@@ -88,8 +100,6 @@ abstract class FitTrackDatabase : RoomDatabase() {
                     FitTrackDatabase::class.java,
                     "fittrack.db"
                 )
-                    // ✅ 개발 단계에서 마이그레이션 귀찮으면 이게 가장 안전
-                    // (기존 DB 날리고 새로 생성)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }
@@ -98,12 +108,58 @@ abstract class FitTrackDatabase : RoomDatabase() {
     }
 }
 
-// 5) Repository (아래에서 addToToday 변경)
+// 5) Repository
 class TodoRepository(
     private val context: Context,
-    private val dao: TodayExerciseDao
+    private val dao: TodayExerciseDao,
+    private val customDao: CustomExerciseDao
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+
+    fun observeCustomCatalog(): Flow<List<Exercise>> =
+        customDao.observeAll().map { list ->
+            list.map { e ->
+                Exercise(
+                    id = e.id,
+                    name = e.name,
+                    category = e.category,
+                    sets = e.sets,
+                    repsPerSet = e.repsPerSet,
+                    duration = e.duration,
+                    calories = e.calories,
+                    difficulty = e.difficulty,
+                    description = e.description
+                )
+            }
+        }
+
+    suspend fun upsertCustomExercise(ex: Exercise) {
+        customDao.upsert(
+            CustomExerciseData(
+                id = ex.id,
+                name = ex.name,
+                category = ex.category,
+                calories = ex.calories,
+                difficulty = ex.difficulty,
+                description = ex.description,
+                sets = ex.sets ?: 1,
+                repsPerSet = ex.repsPerSet,
+                duration = ex.duration
+            )
+        )
+        // ✅ 마스터 정보 업데이트 시 오늘(혹은 과거)의 운동 내역들도 동기화
+        dao.syncExerciseInfo(
+            exerciseId = ex.id,
+            name = ex.name,
+            category = ex.category,
+            difficulty = ex.difficulty,
+            description = ex.description
+        )
+    }
+
+    suspend fun deleteCustomExercise(id: String) {
+        customDao.deleteById(id)
+    }
 
     fun todayKey(): String = LocalDate.now().toString()
 
@@ -124,7 +180,7 @@ class TodoRepository(
     suspend fun addToToday(
         ex: Exercise,
         dateKey: String,
-        sets: Int? = null,
+        sets: Int = 1,
         repsPerSet: Int? = null,
         duration: Int? = null,
         calories: Int
