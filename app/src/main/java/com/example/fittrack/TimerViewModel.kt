@@ -65,9 +65,11 @@ class TimerViewModel : ViewModel() {
     }
 
     fun finishSet() {
-        if (_currentSet.value <= _totalSets.value) {
+        if (_currentSet.value < _totalSets.value) {
             advanceToNextSet()
             startRest()
+        } else if (_currentSet.value == _totalSets.value) {
+            _currentSet.value++
         }
     }
 
@@ -110,6 +112,8 @@ class TimerViewModel : ViewModel() {
                 }
             }
             _setReps.value = updatedReps
+        } else if (set > _totalSets.value) {
+            _currentSet.value = _totalSets.value + 1
         }
     }
 
