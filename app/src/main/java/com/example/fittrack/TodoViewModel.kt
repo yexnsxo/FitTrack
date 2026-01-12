@@ -162,22 +162,45 @@ class TodoViewModel(
         }
     }
 
+    // ✅ 실제 시간 수동 수정 시 칼로리 재계산 로직 추가
+    fun updateActualTime(rowId: Long, totalSec: Int) {
+        viewModelScope.launch {
+            val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
+            val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
+            
+            val updatedCalories = if (baseExercise != null) {
+                if (item.repsPerSet != null) {
+                    // 근력 운동: 시간 수정 시에도 기존 수행 횟수 기준으로 칼로리 유지 (또는 필요 시 수정 가능)
+                    item.calories 
+                } else {
+                    // 시간 기반 운동: 수정된 실제 분(min)에 맞춰 칼로리 재계산
+                    val actualMin = totalSec / 60.0
+                    val baseMin = (baseExercise.duration ?: 5).toDouble()
+                    (baseExercise.calories * (actualMin / baseMin)).roundToInt()
+                }
+            } else {
+                item.calories
+            }
+
+            // DB 업데이트 (기존 completeRecord 재사용하여 실제 시간과 갱신된 칼로리 저장)
+            repo.completeRecord(rowId, totalSec, item.actualReps, updatedCalories)
+        }
+    }
+
     fun toggleCompleted(rowId: Long, checked: Boolean) {
         viewModelScope.launch {
             val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
             if (checked) {
-                // ✅ 수정: 시간 기반 운동 시 (세트 수 * 시간)으로 총량 계산
                 val targetReps = if (item.repsPerSet != null) {
                     item.sets * item.repsPerSet 
                 } else {
                     item.sets * (item.duration ?: 0)
                 }
 
-                // ✅ 수정: 예상 시간도 (세트 수 * 시간)으로 계산
                 val estimatedSec = if (item.duration != null) {
                     (item.sets * item.duration * 60)
                 } else {
-                    (item.sets * 60) // 근력 운동은 세트당 1분 추정
+                    (item.sets * 60)
                 }
                 
                 repo.completeRecord(rowId, estimatedSec, targetReps, item.calories)

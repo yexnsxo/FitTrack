@@ -153,6 +153,9 @@ fun TodoScreen(
                         val type = if (item.repsPerSet != null) "reps" else "time"
                         val sets = item.sets
                         navController.navigate("timer?rowId=${item.rowId}&name=${item.name}&target=$target&type=$type&sets=$sets")
+                    },
+                    onEditActualTime = { item, totalSec ->
+                        vm.updateActualTime(item.rowId, totalSec) // ✅ 콜백 연결 재확인
                     }
                 )
             }
@@ -289,12 +292,41 @@ fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int, tot
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "오늘의 운동",
-                    color = Color.White,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                    Text(
+                        text = "오늘의 운동",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                Column(
+                    modifier = Modifier.fillMaxHeight(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    val h = totalDurationSec / 3600
+                    val m = (totalDurationSec % 3600) / 60
+                    val s = totalDurationSec % 60
+
+                    val timeText = when {
+                        h > 0 -> if (s > 0) "${h}시간 ${m}분 ${s}초" else "${h}시간 ${m}분"
+                        m > 0 -> if (s > 0) "${m}분 ${s}초" else "${m}분"
+                        else -> "${s}초"
+                    }
+
+                    Text(
+                        "총 운동 시간",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = timeText,
+                        color = Color.White,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -312,61 +344,34 @@ fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int, tot
                             horizontalAlignment = Alignment.Start
                         ) {
                             Text(
+                                "완료됨",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp
+                            )
+                            Text(
                                 text = "${completedCount}/${totalCount}",
                                 color = Color.White,
                                 fontSize = 26.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
-                            Text(
-                                "완료됨",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 12.sp
-                            )
                         }
 
+                        // 총 소모 칼로리 추가
                         Column(
                             modifier = Modifier.fillMaxHeight(),
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.Start
                         ) {
-                            Text(
-                                text = "${caloriesSum}kcal",
-                                color = Color.White,
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
                             Text(
                                 "총 칼로리",
                                 color = Color.White.copy(alpha = 0.85f),
                                 fontSize = 12.sp
                             )
-                        }
-
-                        Column(
-                            modifier = Modifier.fillMaxHeight(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            val h = totalDurationSec / 3600
-                            val m = (totalDurationSec % 3600) / 60
-                            val s = totalDurationSec % 60
-                            
-                            val timeText = when {
-                                h > 0 -> if (s > 0) "${h}시간 ${m}분 ${s}초" else "${h}시간 ${m}분"
-                                m > 0 -> if (s > 0) "${m}분 ${s}초" else "${m}분"
-                                else -> "${s}초"
-                            }
-                            
                             Text(
-                                text = timeText,
+                                text = "${caloriesSum}kcal",
                                 color = Color.White,
-                                fontSize = 22.sp,
+                                fontSize = 24.sp,
                                 fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                "총 운동 시간",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 12.sp
                             )
                         }
 
