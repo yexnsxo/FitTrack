@@ -89,6 +89,11 @@ class TimerService : Service() {
         return binder
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        stopSelf()
+    }
+
     fun initWorkout(rowId: Long, name: String, target: Int, type: String, targetSets: Int) {
         // If a new workout is started for the same ID, just continue
         if (_targetRowId.value == rowId && _isWorkoutStarted.value) return
