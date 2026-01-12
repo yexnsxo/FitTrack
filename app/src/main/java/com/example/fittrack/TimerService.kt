@@ -150,6 +150,7 @@ class TimerService : Service() {
         if (!_isResting.value) {
             _totalTime.value = seconds
         }
+        updateNotification()
     }
 
     fun setTotalSets(count: Int) {
@@ -161,6 +162,7 @@ class TimerService : Service() {
                 _currentSet.value = count
             }
         }
+        updateNotification()
     }
 
     fun setRepsForSet(set: Int, reps: Int) {
