@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
@@ -72,7 +73,8 @@ fun TodayListCard(
     onToggle: (TodayExerciseEntity, Boolean) -> Unit,
     onDelete: (TodayExerciseEntity) -> Unit,
     onEditStrength: (TodayExerciseEntity, Int, Int) -> Unit,     // sets, reps
-    onEditDuration: (TodayExerciseEntity, Int, Int) -> Unit      // sets, minutes  ✅ 세트 필수라서 3개
+    onEditDuration: (TodayExerciseEntity, Int, Int) -> Unit,      // sets, minutes
+    onTimerClick: (TodayExerciseEntity) -> Unit = {} // ✅ 타이머 클릭 콜백 추가
 ) {
     Text("오늘의 운동 목록", fontWeight = FontWeight.Bold, fontSize = 20.sp)
     Spacer(Modifier.height(8.dp))
@@ -80,7 +82,6 @@ fun TodayListCard(
     val shape = RoundedCornerShape(18.dp)
     val isEmpty = items.isEmpty()
 
-    // 투두 리스트에 아무 항목도 없을 때
     if (isEmpty) {
         Card(
             modifier = Modifier
@@ -121,7 +122,6 @@ fun TodayListCard(
         return
     }
 
-    // 투두 리스트에 항목이 있을 때
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items.forEach { item ->
             TodayRow(
@@ -129,20 +129,21 @@ fun TodayListCard(
                 onToggle = { checked -> onToggle(item, checked) },
                 onDelete = { onDelete(item) },
                 onEditStrength = { sets, reps -> onEditStrength(item, sets, reps) },
-                onEditDuration = { sets, minutes -> onEditDuration(item, sets, minutes) }
+                onEditDuration = { sets, minutes -> onEditDuration(item, sets, minutes) },
+                onTimerClick = { onTimerClick(item) }
             )
         }
     }
 }
 
-// 투두 항목 컴포넌트
 @Composable
 private fun TodayRow(
     item: TodayExerciseEntity,
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
     onEditStrength: (sets: Int, reps: Int) -> Unit,
-    onEditDuration: (sets: Int, minutes: Int) -> Unit
+    onEditDuration: (sets: Int, minutes: Int) -> Unit,
+    onTimerClick: () -> Unit
 ) {
     val selected = item.isCompleted
     val editOpen = remember { mutableStateOf(false) }
@@ -168,7 +169,6 @@ private fun TodayRow(
                 Spacer(Modifier.width(14.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    // ✅ FlowRow를 사용하여 운동명이 길면 태그들이 아래로 내려가게 함
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -196,7 +196,12 @@ private fun TodayRow(
                                 else -> "운동"
                             }
                         )
-                        DifficultyPill(difficulty = item.difficulty)
+                        
+                        // ✅ 시간 아이콘 버튼 (타이머 연결)
+                        TimerPill(
+                            actualSec = item.actualDurationSec,
+                            onClick = onTimerClick
+                        )
                     }
 
                     Spacer(Modifier.height(10.dp))
@@ -205,10 +210,16 @@ private fun TodayRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (item.repsPerSet != null) {
-                            Text(text = "${item.sets}세트 ${item.repsPerSet}회", fontSize = 15.sp)
-                        } else if (item.duration != null) {
-                            Text(text = "${item.sets}세트 ${item.duration}분", fontSize = 15.sp)
+                        // ✅ 실제 수행 기록이 있으면 표시
+                        if (item.actualReps > 0) {
+                            val unit = if (item.duration != null) "분" else "회"
+                            Text(text = "수행: ${item.actualReps}$unit", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                        } else {
+                            if (item.repsPerSet != null) {
+                                Text(text = "${item.sets}세트 ${item.repsPerSet}회", fontSize = 15.sp)
+                            } else if (item.duration != null) {
+                                Text(text = "${item.sets}세트 ${item.duration}분", fontSize = 15.sp)
+                            }
                         }
 
                         Text(
@@ -220,31 +231,39 @@ private fun TodayRow(
                     }
                 }
 
-                // ✅ 오른쪽 버튼 컬럼: 위=수정, 아래=삭제
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    IconButton(onClick = { editOpen.value = true }) {
-                        Icon(
-                            imageVector = Icons.Filled.Edit,
-                            contentDescription = "수정",
-                            tint = Color(0xFF6B7280)
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Filled.DeleteOutline,
-                            contentDescription = "삭제",
-                            tint = Color(0xFF6B7280)
-                        )
+                if (!selected) {
+                    val iconBtnSize = 38.dp
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        IconButton(
+                            onClick = { editOpen.value = true },
+                            modifier = Modifier.size(iconBtnSize)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Edit,
+                                contentDescription = "수정",
+                                tint = Color(0xFF6B7280),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(iconBtnSize)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.DeleteOutline,
+                                contentDescription = "삭제",
+                                tint = Color(0xFF6B7280),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    // ✅ 수정 모달
     if (editOpen.value) {
         EditExerciseDialog(
             item = item,
@@ -258,6 +277,52 @@ private fun TodayRow(
                 editOpen.value = false
             }
         )
+    }
+}
+
+@Composable
+private fun TimerPill(
+    actualSec: Int,
+    onClick: () -> Unit
+) {
+    val hasTime = actualSec > 0
+    val bgColor = if (hasTime) Color(0xFFEEF2FF) else Color(0xFFF3F4F6)
+    val contentColor = if (hasTime) Color(0xFF4F46E5) else Color(0xFF6B7280)
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(bgColor)
+            .clickable { onClick() }
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.AccessTime,
+                contentDescription = "타이머",
+                tint = contentColor,
+                modifier = Modifier.size(16.dp)
+            )
+            if (hasTime) {
+                Spacer(Modifier.width(4.dp))
+                val mins = actualSec / 60
+                val secs = actualSec % 60
+                
+                // ✅ 초가 0일 때는 생략하도록 로직 수정
+                val timeText = if (mins > 0) {
+                    if (secs > 0) "${mins}분 ${secs}초" else "${mins}분"
+                } else {
+                    "${secs}초"
+                }
+                
+                Text(
+                    text = timeText,
+                    fontSize = 14.sp,
+                    color = contentColor,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 
@@ -302,24 +367,5 @@ private fun CategoryPill(emoji: String, text: String) {
             Text(emoji, fontSize = 16.sp)
             Text(text, fontSize = 14.sp, color = Color(0xFF374151), fontWeight = FontWeight.SemiBold)
         }
-    }
-}
-
-@Composable
-private fun DifficultyPill(difficulty: String) {
-    val (label, color) = when (difficulty) {
-        "beginner" -> "초급" to Color(0xFF16A34A)
-        "intermediate" -> "중급" to Color(0xFFF59E0B)
-        "advanced" -> "고급" to Color(0xFFEF4444)
-        else -> difficulty to Color(0xFF111827)
-    }
-
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(color.copy(alpha = 0.12f))
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-    ) {
-        Text(label, fontSize = 14.sp, color = color, fontWeight = FontWeight.Bold)
     }
 }

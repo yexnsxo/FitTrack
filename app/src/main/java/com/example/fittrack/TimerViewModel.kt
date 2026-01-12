@@ -11,23 +11,33 @@ import kotlinx.coroutines.launch
 
 class TimerViewModel : ViewModel() {
 
-    // 운동 시작 상태
+    private val _targetRowId = MutableStateFlow<Long?>(null)
+    val targetRowId: StateFlow<Long?> = _targetRowId.asStateFlow()
+
+    private val _exerciseName = MutableStateFlow("")
+    val exerciseName: StateFlow<String> = _exerciseName.asStateFlow()
+
+    private val _workoutType = MutableStateFlow("reps")
+    val workoutType: StateFlow<String> = _workoutType.asStateFlow()
+
     private val _isWorkoutStarted = MutableStateFlow(false)
     val isWorkoutStarted: StateFlow<Boolean> = _isWorkoutStarted.asStateFlow()
 
-    // 휴식 타이머 상태
-    private val _totalTime = MutableStateFlow(60) // 총 휴식 시간 (초)
-    val totalTime: StateFlow<Int> = _totalTime.asStateFlow()
+    private val _totalWorkoutTime = MutableStateFlow(0)
+    val totalWorkoutTime: StateFlow<Int> = _totalWorkoutTime.asStateFlow()
+    private var workoutTimerJob: Job? = null
 
-    private val _remainingTime = MutableStateFlow(60) // 남은 휴식 시간
-    val remainingTime: StateFlow<Int> = _remainingTime.asStateFlow()
+    private val _totalRestTime = MutableStateFlow(60) 
+    val totalRestTime: StateFlow<Int> = _totalRestTime.asStateFlow()
 
-    private val _isTimerRunning = MutableStateFlow(false)
-    val isTimerRunning: StateFlow<Boolean> = _isTimerRunning.asStateFlow()
+    private val _remainingRestTime = MutableStateFlow(60) 
+    val remainingRestTime: StateFlow<Int> = _remainingRestTime.asStateFlow()
 
-    private var timerJob: Job? = null
+    private val _isResting = MutableStateFlow(false)
+    val isResting: StateFlow<Boolean> = _isResting.asStateFlow()
 
-    // 세트 & 횟수 상태
+    private var restTimerJob: Job? = null
+
     private val _totalSets = MutableStateFlow(5)
     val totalSets: StateFlow<Int> = _totalSets.asStateFlow()
 
@@ -37,53 +47,68 @@ class TimerViewModel : ViewModel() {
     private val _setReps = MutableStateFlow<List<Int>>(listOf())
     val setReps: StateFlow<List<Int>> = _setReps.asStateFlow()
 
-    init {
-        _setReps.value = List(_totalSets.value) { 10 }
+    fun initWorkout(rowId: Long, name: String, target: Int, type: String, targetSets: Int) {
+        // ✅ 이미 같은 운동이 시작된 상태라면 초기화하지 않고 유지
+        if (_targetRowId.value == rowId && _isWorkoutStarted.value) return
+
+        _targetRowId.value = rowId
+        _exerciseName.value = name
+        _workoutType.value = type
+        _totalSets.value = if (targetSets > 0) targetSets else 5
+        _setReps.value = List(_totalSets.value) { target }
+        
+        resetWorkout()
     }
 
     fun startWorkout() {
         _isWorkoutStarted.value = true
+        startWorkoutTimer()
     }
 
-    fun setRestTime(seconds: Int) {
-        if (!isTimerRunning.value) {
-            _totalTime.value = seconds
-            _remainingTime.value = seconds
+    private fun startWorkoutTimer() {
+        workoutTimerJob?.cancel()
+        workoutTimerJob = viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                _totalWorkoutTime.value++
+            }
         }
     }
 
-    private fun advanceToNextSet() {
-        if (_currentSet.value < _totalSets.value) {
-            _currentSet.value++
+    fun setRestTime(seconds: Int) {
+        if (!_isResting.value) {
+            _totalRestTime.value = seconds
+            _remainingRestTime.value = seconds
         }
     }
 
     private fun startRest() {
-        _remainingTime.value = _totalTime.value
-        if (_remainingTime.value <= 0) return
+        _remainingRestTime.value = _totalRestTime.value
+        if (_remainingRestTime.value <= 0) return
 
-        _isTimerRunning.value = true
-        timerJob?.cancel()
-        timerJob = viewModelScope.launch {
-            while (_remainingTime.value > 0) {
+        _isResting.value = true
+        restTimerJob?.cancel()
+        restTimerJob = viewModelScope.launch {
+            while (_remainingRestTime.value > 0) {
                 delay(1000)
-                _remainingTime.value--
+                _remainingRestTime.value--
             }
-            _isTimerRunning.value = false
+            _isResting.value = false
         }
     }
 
     fun stopRest() {
-        timerJob?.cancel()
-        _isTimerRunning.value = false
-        _remainingTime.value = _totalTime.value
+        restTimerJob?.cancel()
+        _isResting.value = false
+        _remainingRestTime.value = _totalRestTime.value
     }
 
     fun setTotalSets(count: Int) {
         if (count > 0) {
             _totalSets.value = count
             val currentReps = _setReps.value
-            _setReps.value = List(count) { index -> currentReps.getOrNull(index) ?: 10 }
+            val target = if (currentReps.isNotEmpty()) currentReps[0] else 10
+            _setReps.value = List(count) { index -> currentReps.getOrNull(index) ?: target }
             if (_currentSet.value > count) {
                 _currentSet.value = count
             }
@@ -92,21 +117,37 @@ class TimerViewModel : ViewModel() {
 
     fun finishSet() {
         if (_currentSet.value < _totalSets.value) {
-            advanceToNextSet()
+            _currentSet.value++
             startRest()
         } else if (_currentSet.value == _totalSets.value) {
-            _currentSet.value++ // Mark as complete
+            _currentSet.value++ // 완료 상태
             stopRest()
+            workoutTimerJob?.cancel()
         }
     }
 
     fun resetWorkout() {
-        timerJob?.cancel()
-        _isTimerRunning.value = false
+        workoutTimerJob?.cancel()
+        restTimerJob?.cancel()
+        _isResting.value = false
         _isWorkoutStarted.value = false
-        _remainingTime.value = _totalTime.value
+        _totalWorkoutTime.value = 0
+        _remainingRestTime.value = _totalRestTime.value
         _currentSet.value = 1
-        _setReps.value = List(_totalSets.value) { 10 }
+    }
+
+    // ✅ 완전히 초기화 (운동 종료 시 또는 Todo 체크 해제 시 호출)
+    fun clearWorkout() {
+        resetWorkout()
+        _targetRowId.value = null
+        _exerciseName.value = ""
+        _setReps.value = emptyList()
+    }
+
+    fun resetIfMatches(rowId: Long) {
+        if (_targetRowId.value == rowId) {
+            clearWorkout()
+        }
     }
 
     fun setRepsForSet(set: Int, reps: Int) {
@@ -119,18 +160,15 @@ class TimerViewModel : ViewModel() {
 
     fun resetToSet(set: Int) {
         if (set > 0 && set <= _totalSets.value) {
-            timerJob?.cancel()
-            _isTimerRunning.value = false
-            _remainingTime.value = _totalTime.value
-
+            restTimerJob?.cancel()
+            _isResting.value = false
+            _remainingRestTime.value = _totalRestTime.value
             _currentSet.value = set
-            val updatedReps = _setReps.value.toMutableList()
-            for (i in (set - 1) until _totalSets.value) {
-                if (i < updatedReps.size) {
-                    updatedReps[i] = 10
-                }
-            }
-            _setReps.value = updatedReps
         }
+    }
+    
+    fun getTotalReps(): Int {
+        val completedSets = (_currentSet.value - 1).coerceAtLeast(0)
+        return _setReps.value.take(completedSets).sum()
     }
 }

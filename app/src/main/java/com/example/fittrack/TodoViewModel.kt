@@ -26,7 +26,8 @@ enum class CategoryFilter(val key: String?, val label: String, val emoji: String
 data class ProgressUi(
     val completedCount: Int = 0,
     val totalCount: Int = 0,
-    val caloriesSum: Int = 0
+    val caloriesSum: Int = 0,
+    val totalDurationSec: Int = 0 
 )
 
 class TodoViewModel(
@@ -67,7 +68,8 @@ class TodoViewModel(
                 ProgressUi(
                     completedCount = completed.size,
                     totalCount = list.size,
-                    caloriesSum = completed.sumOf { it.calories }
+                    caloriesSum = completed.sumOf { it.calories },
+                    totalDurationSec = completed.sumOf { it.actualDurationSec }
                 )
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUi())
@@ -107,12 +109,6 @@ class TodoViewModel(
         }
     }
 
-    fun updateCustomExercise(ex: Exercise) {
-        viewModelScope.launch {
-            repo.upsertCustomExercise(ex)
-        }
-    }
-
     fun deleteCustomExercise(ex: Exercise) {
         viewModelScope.launch {
             repo.deleteCustomExercise(ex.id)
@@ -121,33 +117,80 @@ class TodoViewModel(
 
     fun addExerciseToTodayWithSelection(ex: Exercise, sets: Int, repsPerSet: Int) {
         viewModelScope.launch {
-            val calories = calcCalories(ex, sets = sets, repsPerSet = repsPerSet, durationMin = null)
+            val calories = calcCalories(pending = ex, sets = sets, repsPerSet = repsPerSet, durationMin = null)
             repo.addToToday(ex, todayKey, sets, repsPerSet, null, calories)
         }
     }
 
     fun addExerciseToTodayWithDuration(ex: Exercise, sets: Int, durationMin: Int) {
         viewModelScope.launch {
-            val calories = calcCalories(ex, sets = sets, repsPerSet = null, durationMin = durationMin)
+            val calories = calcCalories(pending = ex, sets = sets, repsPerSet = null, durationMin = durationMin)
             repo.addToToday(ex, todayKey, sets, null, durationMin, calories)
         }
     }
 
-    private fun calcCalories(ex: Exercise, sets: Int?, repsPerSet: Int?, durationMin: Int?): Int {
+    private fun calcCalories(pending: Exercise, sets: Int?, repsPerSet: Int?, durationMin: Int?): Int {
         val s = (sets ?: 1).toDouble()
-        return if (repsPerSet != null || (ex.category == "strength" && durationMin == null)) {
+        return if (repsPerSet != null || (pending.category == "strength" && durationMin == null)) {
             val baseReps = 10.0
             val r = (repsPerSet ?: 10).toDouble()
-            (ex.calories * s * (r / baseReps)).roundToInt()
+            (pending.calories * s * (r / baseReps)).roundToInt()
         } else {
-            val baseMin = (ex.duration ?: 5).toDouble()
-            val m = (durationMin ?: (ex.duration ?: 5)).toDouble()
-            (ex.calories * s * (m / baseMin)).roundToInt()
+            val baseMin = (pending.duration ?: 5).toDouble()
+            val m = (durationMin ?: (pending.duration ?: 5)).toDouble()
+            (pending.calories * s * (m / baseMin)).roundToInt()
         }.coerceAtLeast(0)
     }
 
+    fun completeWorkoutFromTimer(rowId: Long, actualSec: Int, totalReps: Int) {
+        viewModelScope.launch {
+            val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
+            val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
+            
+            val updatedCalories = if (baseExercise != null) {
+                if (item.repsPerSet != null) {
+                    (baseExercise.calories * (totalReps / 10.0)).roundToInt()
+                } else {
+                    val baseMin = (baseExercise.duration ?: 5).toDouble()
+                    (baseExercise.calories * (totalReps.toDouble() / baseMin)).roundToInt()
+                }
+            } else {
+                item.calories
+            }
+
+            repo.completeRecord(rowId, actualSec, totalReps, updatedCalories)
+        }
+    }
+
     fun toggleCompleted(rowId: Long, checked: Boolean) {
-        viewModelScope.launch { repo.setCompleted(rowId, checked) }
+        viewModelScope.launch {
+            val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
+            if (checked) {
+                // ✅ 수정: 시간 기반 운동 시 (세트 수 * 시간)으로 총량 계산
+                val targetReps = if (item.repsPerSet != null) {
+                    item.sets * item.repsPerSet 
+                } else {
+                    item.sets * (item.duration ?: 0)
+                }
+
+                // ✅ 수정: 예상 시간도 (세트 수 * 시간)으로 계산
+                val estimatedSec = if (item.duration != null) {
+                    (item.sets * item.duration * 60)
+                } else {
+                    (item.sets * 60) // 근력 운동은 세트당 1분 추정
+                }
+                
+                repo.completeRecord(rowId, estimatedSec, targetReps, item.calories)
+            } else {
+                val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
+                val initialCalories = if (baseExercise != null) {
+                    calcCalories(baseExercise, item.sets, item.repsPerSet, item.duration)
+                } else {
+                    item.calories
+                }
+                repo.resetRecord(rowId, initialCalories)
+            }
+        }
     }
 
     fun deleteTodayRow(rowId: Long) {
