@@ -16,7 +16,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -31,12 +35,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.fittrack.data.TodayExerciseEntity
+import com.example.fittrack.ui.theme.Main40
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
@@ -49,12 +56,28 @@ import java.time.format.DateTimeFormatter
 fun RecordScreen(modifier: Modifier = Modifier, viewModel: RecordViewModel) {
     val showCalendar by viewModel.showCalendar.collectAsState()
 
-    Scaffold {
-        paddingValues ->
+    Scaffold(
+        containerColor = Color(0xFFF1F3F5)
+    ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
-            TabRow(selectedTabIndex = if (showCalendar) 0 else 1) {
-                Tab(selected = showCalendar, onClick = { viewModel.setShowCalendar(true) }, text = { Text("달력") })
-                Tab(selected = !showCalendar, onClick = { viewModel.setShowCalendar(false) }, text = { Text("전체 사진") })
+            TabRow(
+                selectedTabIndex = if (showCalendar) 0 else 1,
+                containerColor = Color.White
+            ) {
+                Tab(
+                    selected = showCalendar,
+                    onClick = { viewModel.setShowCalendar(true) },
+                    text = { Text("달력") },
+                    selectedContentColor = Main40,
+                    unselectedContentColor = Color.Gray
+                )
+                Tab(
+                    selected = !showCalendar,
+                    onClick = { viewModel.setShowCalendar(false) },
+                    text = { Text("전체 사진") },
+                    selectedContentColor = Main40,
+                    unselectedContentColor = Color.Gray
+                )
             }
 
             if (showCalendar) {
@@ -73,59 +96,76 @@ fun CalendarView(viewModel: RecordViewModel) {
     val selectedDate by viewModel.selectedDate.collectAsState()
     val exercises by viewModel.exercisesForSelectedDate.collectAsState()
 
-    Column {
-        RecordCalendar(markedDates = markedDates, onDateSelected = { date -> viewModel.onDateSelected(date) })
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-            )
-            val photo = photos.firstOrNull()
-            if (photo != null) {
-                Button(onClick = { viewModel.deletePhoto(photo) }) {
-                    Text("사진 삭제")
-                }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+            ) {
+                RecordCalendar(
+                    markedDates = markedDates,
+                    onDateSelected = { date -> viewModel.onDateSelected(date) }
+                )
             }
         }
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            item {
-                ExerciseListView(exercises = exercises)
-            }
-
-            val photo = photos.firstOrNull()
-            if (photo != null && photo.uri.isNotEmpty()) {
-                item {
-                    Column(
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 2)
-
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(photo.uri.toUri())
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(imageSize)
+                        Text(
+                            text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                            color = Color.Black
                         )
+                        val photo = photos.firstOrNull()
+                        if (photo != null) {
+                            Button(onClick = { viewModel.deletePhoto(photo) }) {
+                                Text("사진 삭제")
+                            }
+                        }
                     }
+
+                    val photo = photos.firstOrNull()
+                    if (photo != null && photo.uri.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 2)
+
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(photo.uri.toUri())
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(imageSize)
+                            )
+                        }
+                    }
+                    ExerciseListView(exercises = exercises)
                 }
             }
         }
@@ -147,21 +187,28 @@ fun AllPhotosView(viewModel: RecordViewModel) {
     } else {
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             items(allPhotos) { photo ->
-                val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 3)
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(photo.uri.toUri())
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(imageSize)
-                )
+                Card(
+                    shape = RoundedCornerShape(8.dp),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 3)
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(photo.uri.toUri())
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(imageSize)
+                    )
+                }
             }
         }
     }
@@ -181,7 +228,7 @@ fun Day(day: CalendarDay, isMarked: Boolean, onDateSelected: (LocalDate) -> Unit
             Box(
                 modifier = Modifier
                     .size(10.dp)
-                    .background(color = Color.Red, shape = CircleShape)
+                    .background(color = Main40, shape = CircleShape)
                     .align(Alignment.BottomCenter)
             )
         }
@@ -219,23 +266,69 @@ fun RecordCalendar(
 
 @Composable
 fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
-    Column {
-        exercises.forEach { exercise ->
-            val amountText = if (exercise.duration != null) {
-                "${exercise.duration} mins"
-            } else {
-                "${exercise.repsPerSet} reps"
+    Column(
+        modifier = Modifier
+            .padding(top = 16.dp)
+            .fillMaxWidth()
+    ) {
+        if (exercises.isNotEmpty()) {
+            Text(
+                text = "운동 기록",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            exercises.forEachIndexed { index, exercise ->
+                val amountText = if (exercise.duration != null) {
+                    "${exercise.duration}분"
+                } else {
+                    "${exercise.repsPerSet}회"
+                }
+                val setsText = "${exercise.sets}세트"
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = exercise.name,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 17.sp,
+                    )
+                    Text(
+                        text = "$setsText, $amountText",
+                        fontSize = 15.sp,
+                        color = Color.DarkGray
+                    )
+                }
+                if (index < exercises.size - 1) {
+                    Divider(color = Color.LightGray, thickness = 0.5.dp)
+                }
             }
-            Text(text = "${exercise.name} - ${exercise.sets} sets, $amountText")
+        } else {
+            Text(
+                text = "이 날은 운동 기록이 없어요.",
+                fontSize = 16.sp,
+                color = Color.Gray,
+                modifier = Modifier
+                    .padding(vertical = 16.dp)
+                    .fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
 
 @Composable
 fun MonthHeader(daysOfWeek: List<CalendarDay>, month: String) {
-    Column {
+    Column(modifier = Modifier.padding(8.dp)) {
         Text(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
             text = month,
             textAlign = TextAlign.Center
         )
