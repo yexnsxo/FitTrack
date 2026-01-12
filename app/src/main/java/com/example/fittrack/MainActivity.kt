@@ -132,16 +132,47 @@ fun MainScreen(
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
-                            if (currentRoute != destination.route) {
-                                if (destination == Destination.TIMER && timerViewModel.targetRowId.value == null) {
-                                    timerViewModel.clearWorkout()
-                                }
-                                navController.navigate(destination.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                            if (currentRoute == destination.route) return@NavigationBarItem
+
+                            when (destination) {
+                                Destination.TODO -> {
+                                    // ✅ Timer(쿼리 포함)에서 Todo로 갈 때는 "navigate"가 아니라 "pop"이 안전함
+                                    val popped = navController.popBackStack(Destination.TODO.route, inclusive = false)
+
+                                    // ✅ 혹시 Todo가 스택에 없으면(예: intent로 timer부터 온 경우) navigate로 보정
+                                    if (!popped) {
+                                        navController.navigate(Destination.TODO.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                }
+
+                                Destination.TIMER -> {
+                                    // ✅ 타이머 탭을 "직접" 눌러 들어갈 때만 초기화(원래 로직 유지)
+                                    if (timerViewModel.targetRowId.value == null) {
+                                        timerViewModel.clearWorkout()
+                                    }
+                                    navController.navigate(Destination.TIMER.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+
+                                else -> {
+                                    navController.navigate(destination.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             }
                         },
