@@ -14,14 +14,15 @@ import androidx.compose.material.icons.filled.CameraEnhance
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -62,9 +63,9 @@ fun MainScreen(recordViewModel: RecordViewModel, timerViewModel: TimerViewModel)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    LaunchedEffect(navBackStackEntry) {
-        Log.d("NAV", "current route = ${navBackStackEntry?.destination?.route}")
-    }
+    val todoViewModel: TodoViewModel = viewModel(
+        factory = TodoViewModelFactory(LocalContext.current.applicationContext)
+    )
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -82,8 +83,20 @@ fun MainScreen(recordViewModel: RecordViewModel, timerViewModel: TimerViewModel)
                             if (currentRoute != destination.route) {
                                 when (destination) {
                                     Destination.TODO -> {
-                                        // ✅ Todo로 복귀 시 Timer 스택을 제거하여 꼬임 방지
                                         navController.popBackStack(Destination.TODO.route, inclusive = false)
+                                    }
+                                    Destination.TIMER -> {
+                                        // ✅ 타이머 탭으로 직접 이동 시, 진행 중인 운동이 없으면 초기화
+                                        if (timerViewModel.targetRowId.value == null) {
+                                            timerViewModel.clearWorkout()
+                                        }
+                                        navController.navigate(destination.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
                                     else -> {
                                         navController.navigate(destination.route) {
@@ -104,7 +117,6 @@ fun MainScreen(recordViewModel: RecordViewModel, timerViewModel: TimerViewModel)
             }
         }
     ) { innerPadding ->
-        // ✅ 4. 라우트 패턴 수정: sets 추가
         val timerPattern = "${Destination.TIMER.route}?rowId={rowId}&name={name}&target={target}&type={type}&sets={sets}"
 
         NavHost(
@@ -113,7 +125,12 @@ fun MainScreen(recordViewModel: RecordViewModel, timerViewModel: TimerViewModel)
             modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
         ) {
             composable(Destination.TODO.route) {
-                TodoScreen(navController = navController, recordViewModel = recordViewModel)
+                TodoScreen(
+                    vm = todoViewModel,
+                    timerViewModel = timerViewModel,
+                    navController = navController, 
+                    recordViewModel = recordViewModel
+                )
             }
             composable(Destination.RECORD.route) {
                 RecordScreen(viewModel = recordViewModel)
@@ -125,30 +142,27 @@ fun MainScreen(recordViewModel: RecordViewModel, timerViewModel: TimerViewModel)
                     navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     navArgument("target") { type = NavType.IntType; defaultValue = 0 },
                     navArgument("type") { type = NavType.StringType; defaultValue = "" },
-                    navArgument("sets") { type = NavType.IntType; defaultValue = 0 } // ✅ sets 추가
+                    navArgument("sets") { type = NavType.IntType; defaultValue = 0 }
                 )
             ) { backStackEntry ->
                 val rowId = backStackEntry.arguments?.getLong("rowId") ?: -1L
                 val name = backStackEntry.arguments?.getString("name") ?: ""
                 val target = backStackEntry.arguments?.getInt("target") ?: 0
                 val type = backStackEntry.arguments?.getString("type") ?: ""
-                val sets = backStackEntry.arguments?.getInt("sets") ?: 0 // ✅ sets 추출
+                val sets = backStackEntry.arguments?.getInt("sets") ?: 0
 
                 LaunchedEffect(rowId) {
                     if (rowId != -1L) {
-                        // ✅ ViewModel 초기화 시 세트 정보도 함께 전달
                         timerViewModel.initWorkout(rowId, name, target, type, sets)
                     }
                 }
 
                 TimerScreen(
                     viewModel = timerViewModel,
+                    todoViewModel = todoViewModel,
                     onFinish = {
-                        if (!navController.popBackStack()) {
-                            navController.navigate(Destination.TODO.route) {
-                                popUpTo(navController.graph.findStartDestination().id)
-                            }
-                        }
+                        timerViewModel.clearWorkout() // ✅ 완료 후 초기화
+                        navController.popBackStack(Destination.TODO.route, inclusive = false)
                     }
                 )
             }
