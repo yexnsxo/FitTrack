@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -49,10 +50,6 @@ fun AddExerciseDialog(
     onConfirmStrength: (sets: Int, repsPerSet: Int) -> Unit,
     onConfirmDuration: (sets: Int, minutes: Int) -> Unit
 ) {
-    // ✅ 횟수 기반인지 시간 기반인지 판단 로직 개선
-    // 1. repsPerSet이 있으면 횟수 기반
-    // 2. duration이 있으면 시간 기반
-    // 3. 둘 다 없으면 카테고리가 strength인 경우 횟수 기반으로 간주
     val isRepBased = remember(exercise) {
         when {
             exercise.repsPerSet != null -> true
@@ -119,7 +116,6 @@ fun AddExerciseDialog(
             color = Color.White
         ) {
             Column {
-                // ✅ 헤더: Row와 weight(1f)를 사용하여 글자가 길어지면 줄바꿈되도록 수정
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -156,7 +152,6 @@ fun AddExerciseDialog(
 
                 Spacer(Modifier.height(14.dp))
 
-                // pill row
                 Row(
                     modifier = Modifier.padding(horizontal = 18.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -183,12 +178,10 @@ fun AddExerciseDialog(
 
                 Spacer(Modifier.height(18.dp))
 
-                // 입력 영역
                 Column(
                     modifier = Modifier.padding(horizontal = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 모든 운동에서 세트 수는 필수
                     Text("세트 수 *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
                     NumberStepperFieldStepOnly(
                         value = sets,
@@ -269,7 +262,8 @@ fun NumberStepperFieldEditable(
     value: Int,
     onValueChange: (Int) -> Unit,
     min: Int,
-    max: Int
+    max: Int,
+    fontSize: TextUnit = 34.sp // ✅ fontSize 파라미터 추가
 ) {
     val shape = RoundedCornerShape(18.dp)
 
@@ -283,7 +277,6 @@ fun NumberStepperFieldEditable(
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // ✅ 세트 수와 동일한 "값 영역" (오른쪽 스텝퍼 제외한 공간)
         Box(
             modifier = Modifier.weight(1f),
             contentAlignment = Alignment.Center
@@ -296,14 +289,14 @@ fun NumberStepperFieldEditable(
                     val n = filtered.toIntOrNull() ?: return@BasicTextField
                     onValueChange(n.coerceIn(min, max))
                 },
-                modifier = Modifier.fillMaxWidth(), // ✅ textAlign이 제대로 먹게
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 textStyle = TextStyle(
-                    fontSize = 34.sp,
+                    fontSize = fontSize, // ✅ 주입받은 크기 사용
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF111827),
-                    textAlign = TextAlign.Center // ✅ 값 영역 기준 가운데
+                    textAlign = TextAlign.Center
                 )
             )
         }
@@ -321,7 +314,8 @@ fun NumberStepperFieldStepOnly(
     onValueChange: (Int) -> Unit,
     min: Int,
     max: Int,
-    step: Int
+    step: Int,
+    fontSize: TextUnit = 34.sp // ✅ fontSize 파라미터 추가
 ) {
     val shape = RoundedCornerShape(18.dp)
 
@@ -341,7 +335,7 @@ fun NumberStepperFieldStepOnly(
         ) {
             Text(
                 text = value.toString(),
-                fontSize = 34.sp,
+                fontSize = fontSize, // ✅ 주입받은 크기 사용
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFF111827)
             )

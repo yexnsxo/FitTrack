@@ -38,77 +38,33 @@ import kotlin.math.roundToInt
 @Composable
 fun EditExerciseDialog(
     item: TodayExerciseEntity,
+    isCompleted: Boolean = false,
     onDismiss: () -> Unit,
     onConfirmStrength: (sets: Int, repsPerSet: Int) -> Unit,
-    onConfirmDuration: (sets: Int, minutes: Int) -> Unit
+    onConfirmDuration: (sets: Int, minutes: Int) -> Unit,
+    onConfirmActualTime: (totalSec: Int) -> Unit = { _ -> }
 ) {
-    // 횟수 기반 여부를 더 명확하게 판단
     val isRepBased = remember(item) {
         item.repsPerSet != null || (item.category == "strength" && item.duration == null)
     }
 
     val setsState = remember { mutableIntStateOf(item.sets) }
     val repsState = remember { mutableIntStateOf(item.repsPerSet ?: 12) }
-    val minutesState = remember { mutableIntStateOf(item.duration ?: 30) }
+    val minutesGoalState = remember { mutableIntStateOf(item.duration ?: 30) }
+
+    val actualMinutesState = remember { mutableIntStateOf(item.actualDurationSec / 60) }
+    val actualSecondsState = remember { mutableIntStateOf(item.actualDurationSec % 60) }
 
     val sets = setsState.intValue
     val reps = repsState.intValue
-    val minutes = minutesState.intValue
-
-    val kcalBlue = Color(0xFF1A6DED)
-
-    val kcalPreview = remember(sets, reps, minutes) {
-        if (isRepBased) {
-            val baseReps = 10.0
-            val oldSets = item.sets.coerceAtLeast(1)
-            val oldReps = (item.repsPerSet ?: 10).coerceAtLeast(1)
-            val baseKcal = item.calories.toDouble() / (oldSets * (oldReps / baseReps))
-            (baseKcal * sets * (reps / baseReps)).roundToInt().coerceAtLeast(0)
-        } else {
-            val oldSets = item.sets.coerceAtLeast(1)
-            val oldMin = (item.duration ?: 5).coerceAtLeast(1)
-            val kcalPerUnit = item.calories.toDouble() / (oldSets * oldMin)
-            (kcalPerUnit * sets * minutes).roundToInt().coerceAtLeast(0)
-        }
-    }
-
-    val diffLabel = when (item.difficulty) {
-        "beginner" -> "초급"
-        "intermediate" -> "중급"
-        "advanced" -> "고급"
-        else -> item.difficulty
-    }
-
-    val diffColor = when (item.difficulty) {
-        "beginner" -> Color(0xFF16A34A)
-        "intermediate" -> Color(0xFFF59E0B)
-        "advanced" -> Color(0xFFEF4444)
-        else -> Color(0xFF111827)
-    }
-
-    val catEmoji = when (item.category) {
-        "strength" -> "💪"
-        "cardio" -> "🏃"
-        "flexibility" -> "🧘"
-        else -> "🏋️"
-    }
-    val catLabel = when (item.category) {
-        "strength" -> "근력"
-        "cardio" -> "유산소"
-        "flexibility" -> "유연성"
-        else -> "운동"
-    }
+    val minutesGoal = minutesGoalState.intValue
+    val actualMin = actualMinutesState.intValue
+    val actualSec = actualSecondsState.intValue
 
     Dialog(onDismissRequest = onDismiss) {
         val shape = RoundedCornerShape(26.dp)
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = shape,
-            color = Color.White
-        ) {
+        Surface(modifier = Modifier.fillMaxWidth(), shape = shape, color = Color.White) {
             Column {
-                // ✅ 헤더: Row와 weight(1f)를 사용하여 글자가 길어지면 줄바꿈되도록 수정
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -119,90 +75,76 @@ fun EditExerciseDialog(
                     verticalAlignment = Alignment.Top
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = item.name,
-                            color = Color.White,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            lineHeight = 32.sp
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = item.description,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 16.sp,
-                            lineHeight = 20.sp
-                        )
+                        Text(item.name, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                        Spacer(Modifier.height(4.dp))
+                        Text(if (isCompleted) "운동 소요 시간 수정" else item.description, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp)
                     }
-
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(40.dp)
-                    ) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(40.dp)) {
                         Icon(Icons.Filled.Close, contentDescription = "닫기", tint = Color.White)
                     }
                 }
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(20.dp))
 
-                Row(
-                    modifier = Modifier.padding(horizontal = 18.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SoftPill(text = "$catEmoji  $catLabel", bg = Color.White.copy(alpha = 0.55f), fg = Color(0xFF374151))
-                    SoftPill(text = diffLabel, bg = Color.White.copy(alpha = 0.55f), fg = diffColor, bold = true)
-                    Text("$kcalPreview kcal", color = kcalBlue, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                }
+                Column(modifier = Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (isCompleted) {
+                        Text("실제 운동 시간", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                // ✅ 세 자릿수(300분 등)를 커버하기 위해 폰트 크기를 20.sp로 조정
+                                NumberStepperFieldStepOnly(
+                                    value = actualMin,
+                                    onValueChange = { actualMinutesState.intValue = it },
+                                    min = 0, max = 300, step = 1,
+                                    fontSize = 20.sp 
+                                )
+                            }
+                            Text("분", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Box(modifier = Modifier.weight(1f)) {
+                                // ✅ 폰트 크기를 20.sp로 조정
+                                NumberStepperFieldStepOnly(
+                                    value = actualSec,
+                                    onValueChange = { actualSecondsState.intValue = it },
+                                    min = 0, max = 59, step = 1,
+                                    fontSize = 20.sp
+                                )
+                            }
+                            Text("초", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
 
-                Spacer(Modifier.height(18.dp))
-
-                Column(
-                    modifier = Modifier.padding(horizontal = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text("세트 수 *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                    NumberStepperFieldStepOnly(
-                        value = sets,
-                        onValueChange = { setsState.intValue = it },
-                        min = 1,
-                        max = 50,
-                        step = 1
-                    )
-
-                    if (isRepBased) {
-                        Text("횟수 (회) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                        NumberStepperFieldEditable(
-                            value = reps,
-                            onValueChange = { repsState.intValue = it },
-                            min = 1,
-                            max = 200
-                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { onConfirmActualTime(actualMin * 60 + actualSec) },
+                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            shape = RoundedCornerShape(22.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                        ) {
+                            Text("소요 시간 저장하기", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                        }
                     } else {
-                        Text("시간 (분) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                        NumberStepperFieldStepOnly(
-                            value = minutes,
-                            onValueChange = { minutesState.intValue = it },
-                            min = 5,
-                            max = 300,
-                            step = 5
-                        )
+                        Text("세트 수 *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
+                        NumberStepperFieldStepOnly(value = sets, onValueChange = { setsState.intValue = it }, min = 1, max = 50, step = 1)
+
+                        if (isRepBased) {
+                            Text("횟수 (회) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
+                            NumberStepperFieldEditable(value = reps, onValueChange = { repsState.intValue = it }, min = 1, max = 200)
+                        } else {
+                            Text("시간 (분) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
+                            NumberStepperFieldStepOnly(value = minutesGoal, onValueChange = { minutesGoalState.intValue = it }, min = 5, max = 300, step = 5)
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { if (isRepBased) onConfirmStrength(sets, reps) else onConfirmDuration(sets, minutesGoal) },
+                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            shape = RoundedCornerShape(22.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                        ) {
+                            Text("운동 수정하기", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                        }
                     }
-
-                    Spacer(Modifier.height(4.dp))
-
-                    Button(
-                        onClick = {
-                            if (isRepBased) onConfirmStrength(sets, reps) else onConfirmDuration(sets, minutes)
-                        },
-                        modifier = Modifier.fillMaxWidth().height(60.dp),
-                        shape = RoundedCornerShape(22.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Main40, contentColor = Color.White)
-                    ) {
-                        Text("운동 수정하기", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                    }
-
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
             }
         }

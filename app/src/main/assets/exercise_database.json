@@ -4,6 +4,7 @@
     "name": "푸시업",
     "category": "strength",
     "sets": 1,
+    "repsPerSet": 20,
     "calories": 5,
     "difficulty": "beginner",
     "description": "가슴과 팔 근력 강화"
@@ -13,6 +14,7 @@
     "name": "풀업",
     "category": "strength",
     "sets": 1,
+    "repsPerSet": 12,
     "calories": 6,
     "difficulty": "advanced",
     "description": "등과 팔 근력 강화"
@@ -22,6 +24,7 @@
     "name": "스쿼트",
     "category": "strength",
     "sets": 1,
+    "repsPerSet": 22,
     "calories": 5.5,
     "difficulty": "beginner",
     "description": "하체 근력 강화"
@@ -31,6 +34,7 @@
     "name": "데드리프트",
     "category": "strength",
     "sets": 1,
+    "repsPerSet": 14,
     "calories": 7,
     "difficulty": "advanced",
     "description": "전신 근력 강화"
@@ -40,6 +44,7 @@
     "name": "벤치프레스",
     "category": "strength",
     "sets": 1,
+    "repsPerSet": 13,
     "calories": 6.5,
     "difficulty": "intermediate",
     "description": "가슴 근력 강화"
@@ -49,6 +54,7 @@
     "name": "플랭크",
     "category": "strength",
     "sets": 1,
+    "repsPerSet": 24,
     "calories": 4,
     "difficulty": "beginner",
     "description": "코어 근력 강화"
