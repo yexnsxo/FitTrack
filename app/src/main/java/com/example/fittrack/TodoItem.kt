@@ -220,24 +220,33 @@ private fun TodayRow(
                     }
                 }
 
-                // ✅ 오른쪽 버튼 컬럼: 위=수정, 아래=삭제
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    IconButton(onClick = { editOpen.value = true }) {
-                        Icon(
-                            imageVector = Icons.Filled.Edit,
-                            contentDescription = "수정",
-                            tint = Color(0xFF6B7280)
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Filled.DeleteOutline,
-                            contentDescription = "삭제",
-                            tint = Color(0xFF6B7280)
-                        )
+                if (!selected) {
+                    val iconBtnSize = 38.dp
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        IconButton(
+                            onClick = { editOpen.value = true },
+                            modifier = Modifier.size(iconBtnSize)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Edit,
+                                contentDescription = "수정",
+                                tint = Color(0xFF6B7280),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(iconBtnSize)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.DeleteOutline,
+                                contentDescription = "삭제",
+                                tint = Color(0xFF6B7280),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }

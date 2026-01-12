@@ -107,12 +107,7 @@ class TodoViewModel(
         }
     }
 
-    fun updateCustomExercise(ex: Exercise) {
-        viewModelScope.launch {
-            repo.upsertCustomExercise(ex)
-        }
-    }
-
+    // ✅ 커스텀 운동 삭제 기능은 유지 (수정 기능만 제거)
     fun deleteCustomExercise(ex: Exercise) {
         viewModelScope.launch {
             repo.deleteCustomExercise(ex.id)
