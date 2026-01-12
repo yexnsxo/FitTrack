@@ -22,6 +22,8 @@ class TimerService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var restTimerJob: Job? = null
     private var totalWorkoutTimeJob: Job? = null
+    private var setTimerJob: Job? = null
+
 
     // Service-managed state
     private val _targetRowId = MutableStateFlow<Long?>(null)
@@ -44,6 +46,9 @@ class TimerService : Service() {
 
     private val _remainingRestTime = MutableStateFlow(0)
     val remainingRestTime = _remainingRestTime.asStateFlow()
+
+    private val _remainingSetTime = MutableStateFlow(0)
+    val remainingSetTime = _remainingSetTime.asStateFlow()
 
     private val _isResting = MutableStateFlow(false)
     val isResting = _isResting.asStateFlow()
@@ -117,11 +122,36 @@ class TimerService : Service() {
                 updateNotification()
             }
         }
+        if (_workoutType.value == "time") {
+            startSetTimer()
+        }
     }
+    private fun startSetTimer() {
+        setTimerJob?.cancel()
+        val setDurationInSeconds = _setReps.value.getOrNull(_currentSet.value - 1)?.times(60) ?: 0
+        _remainingSetTime.value = setDurationInSeconds
+
+        setTimerJob = serviceScope.launch {
+            while (_remainingSetTime.value > 0) {
+                delay(1000)
+                _remainingSetTime.value--
+                updateNotification()
+            }
+            if (_remainingSetTime.value == 0) {
+                finishSet()
+            }
+        }
+    }
+    private fun stopSetTimer() {
+        setTimerJob?.cancel()
+        _remainingSetTime.value = 0
+    }
+
 
     fun clearWorkout() {
         totalWorkoutTimeJob?.cancel()
         restTimerJob?.cancel()
+        setTimerJob?.cancel()
         _isResting.value = false
         _remainingRestTime.value = 0
         _totalWorkoutTime.value = 0
@@ -137,8 +167,10 @@ class TimerService : Service() {
     fun resetWorkout() {
         totalWorkoutTimeJob?.cancel()
         restTimerJob?.cancel()
+        setTimerJob?.cancel()
         _isResting.value = false
         _remainingRestTime.value = 0
+        _remainingSetTime.value = 0
         _totalWorkoutTime.value = 0
         _isWorkoutStarted.value = false
         _currentSet.value = 1
@@ -163,6 +195,10 @@ class TimerService : Service() {
                 updateNotification()
             }
             _isResting.value = false
+            if (_workoutType.value == "time") { // 시간이 다 되면 다음 세트 타이머 시작
+                startSetTimer()
+            }
+
             updateNotification()
         }
     }
@@ -171,11 +207,16 @@ class TimerService : Service() {
         restTimerJob?.cancel()
         _isResting.value = false
         _remainingRestTime.value = 0
+        if (_isWorkoutStarted.value && _workoutType.value == "time" && _currentSet.value <= _totalSets.value) {
+            startSetTimer()
+        }
+
         updateNotification()
     }
 
     fun finishSet() {
         stopRest()
+        stopSetTimer()
         if (_currentSet.value < _totalSets.value) {
             _currentSet.value++
             startRest()
@@ -211,12 +252,19 @@ class TimerService : Service() {
             _setReps.value = updatedReps
         }
     }
+    fun setWorkoutType(type: String) {
+        _workoutType.value = type
+    }
 
     fun resetToSet(set: Int) {
         if (set > 0 && set <= _totalSets.value) {
             stopRest()
+            stopSetTimer()
             _currentSet.value = set
             _isWorkoutStarted.value = true
+            if (_workoutType.value == "time") {
+                startSetTimer()
+            }
         } else if (set > _totalSets.value) {
             _currentSet.value = _totalSets.value + 1
         }
@@ -233,7 +281,7 @@ class TimerService : Service() {
         )
 
         val isFinished = currentSet.value > totalSets.value
-        val title: String
+        var title: String
         val contentText: String
         val isOngoing: Boolean
 
@@ -258,8 +306,13 @@ class TimerService : Service() {
                 )
                 builder.addAction(R.drawable.ic_launcher_foreground, "건너뛰기", stopRestPendingIntent)
             } else {
-                title = "운동 중 - ${_exerciseName.value}"
-                contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 총 시간: ${formatTime(totalWorkoutTime.value)}"
+                title = if (exerciseName.value.isNotEmpty()) "운동 중 - ${exerciseName.value}" else "운동 중"
+                if (workoutType.value == "time") {
+                    contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 남은 시간: ${formatTime(remainingSetTime.value)}"
+                } else {
+                    contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 총 시간: ${formatTime(totalWorkoutTime.value)}"
+                }
+
                 val finishSetIntent = Intent(this, TimerService::class.java).apply {
                     action = ACTION_FINISH_SET
                 }
