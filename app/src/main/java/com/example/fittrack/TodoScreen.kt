@@ -116,7 +116,6 @@ fun TodoScreen(
 
     val pendingAddState = remember { mutableStateOf<Exercise?>(null) }
     val showDirectAddState = remember { mutableStateOf(false) }
-    val editingCustomEx = remember { mutableStateOf<Exercise?>(null) } // ✅ 커스텀 운동 수정용
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -169,7 +168,6 @@ fun TodoScreen(
                 ExerciseCatalogCard(
                     exercises = filteredCatalog,
                     onAdd = { ex -> pendingAddState.value = ex },
-                    onEditCustom = { ex -> editingCustomEx.value = ex },
                     onDeleteCustom = { ex -> vm.deleteCustomExercise(ex) },
                     onOpenDirectAdd = { showDirectAddState.value = true }
                 )
@@ -257,22 +255,6 @@ fun TodoScreen(
                 onConfirm = { newExercise ->
                     vm.addCustomExerciseToCatalog(newExercise)
                     showDirectAddState.value = false
-                }
-            )
-        }
-
-        // ✅ 3. "커스텀 운동 정보 수정" 모달 (목록 수정용)
-        editingCustomEx.value?.let { ex ->
-            AddCustomExerciseDialog(
-                initialExercise = ex,
-                onDismiss = { editingCustomEx.value = null },
-                onConfirm = { updated ->
-                    vm.updateCustomExercise(updated)
-                    editingCustomEx.value = null
-                },
-                onDelete = { toDelete ->
-                    vm.deleteCustomExercise(toDelete)
-                    editingCustomEx.value = null
                 }
             )
         }
