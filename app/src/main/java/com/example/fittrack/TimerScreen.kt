@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,7 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -35,23 +35,25 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,18 +62,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fittrack.ui.theme.Main40
+import java.util.Locale
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimerScreen(
-    viewModel: TimerViewModel,
-    todoViewModel: TodoViewModel, // ✅ 외부에서 주입받도록 수정
-    onFinish: () -> Unit = {}
+    todoViewModel: TodoViewModel,
+    onFinish: () -> Unit = {},
+    viewModel: TimerViewModel = viewModel(),
 ) {
-    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showSettingsSheet by remember { mutableStateOf(false) }
     var showEditRepsDialogForSet by remember { mutableStateOf<Int?>(null) }
     var showConfirmUncheckDialogForSet by remember { mutableStateOf<Int?>(null) }
     val workoutType by viewModel.workoutType.collectAsState()
@@ -98,7 +102,7 @@ fun TimerScreen(
                         }
                         onFinish()
                     } else {
-                        viewModel.clearWorkout() 
+                        viewModel.clearWorkout()
                     }
                 }
                 if (workoutType == "time") {
@@ -106,7 +110,7 @@ fun TimerScreen(
                         viewModel = viewModel,
                         onEditRepsClick = { set -> showEditRepsDialogForSet = set },
                         onUncheckSetClick = { set -> showConfirmUncheckDialogForSet = set },
-                        onSettingsClick = { showSettingsDialog = true },
+                        onSettingsClick = { showSettingsSheet = true },
                         onCompleteWorkout = onCompleteWorkout
                     )
                 } else {
@@ -114,7 +118,7 @@ fun TimerScreen(
                         viewModel = viewModel,
                         onEditRepsClick = { set -> showEditRepsDialogForSet = set },
                         onUncheckSetClick = { set -> showConfirmUncheckDialogForSet = set },
-                        onSettingsClick = { showSettingsDialog = true },
+                        onSettingsClick = { showSettingsSheet = true },
                         onCompleteWorkout = onCompleteWorkout
                     )
                 }
@@ -123,13 +127,13 @@ fun TimerScreen(
         }
     }
 
-    if (showSettingsDialog) {
+    if (showSettingsSheet) {
         val totalSets by viewModel.totalSets.collectAsState()
         val restTime by viewModel.totalRestTime.collectAsState()
         val workoutType by viewModel.workoutType.collectAsState()
         val exerciseName by viewModel.exerciseName.collectAsState()
 
-        SettingsDialog(
+        SettingsSheet(
             totalSets = totalSets,
             restTime = restTime,
             workoutType = workoutType,
@@ -138,7 +142,7 @@ fun TimerScreen(
             onRestTimeChange = { viewModel.setRestTime(it) },
             onWorkoutTypeChange = { viewModel.setWorkoutType(it) },
             onClearWorkout = { viewModel.clearWorkout() },
-            onDismiss = { showSettingsDialog = false }
+            onDismiss = { }
         )
     }
 
@@ -156,7 +160,7 @@ fun TimerScreen(
                     viewModel.setRepsForSet(i, newReps)
                 }
             },
-            onDismiss = { showEditRepsDialogForSet = null }
+            onDismiss = { }
         )
     }
 
@@ -165,9 +169,8 @@ fun TimerScreen(
             setNumber = set,
             onConfirm = {
                 viewModel.resetToSet(set)
-                showConfirmUncheckDialogForSet = null
             },
-            onDismiss = { showConfirmUncheckDialogForSet = null }
+            onDismiss = { }
         )
     }
 }
@@ -219,7 +222,9 @@ fun TimeModeScreen(
                         viewModel.startWorkout()
                     }
                 },
-                modifier = Modifier.fillMaxWidth().height(60.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Main40)
             ) {
@@ -242,7 +247,9 @@ fun TimeModeScreen(
 
             Button(
                 onClick = { viewModel.finishSet() },
-                modifier = Modifier.fillMaxWidth().height(60.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
                 enabled = !isFinished,
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF28a745))
@@ -254,7 +261,9 @@ fun TimeModeScreen(
 
             Button(
                 onClick = { onCompleteWorkout(exerciseName.isNotEmpty()) },
-                modifier = Modifier.fillMaxWidth().height(60.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = if (isFinished) Main40 else Color.Gray)
             ) {
@@ -331,14 +340,16 @@ fun RepsModeScreen(
             StatsCards(viewModel)
         } else {
             Button(
-                onClick = { 
+                onClick = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else {
                         viewModel.startWorkout()
                     }
                  },
-                modifier = Modifier.fillMaxWidth().height(60.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Main40)
             ) {
@@ -362,7 +373,9 @@ fun RepsModeScreen(
 
             Button(
                 onClick = { viewModel.finishSet() },
-                modifier = Modifier.fillMaxWidth().height(60.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
                 enabled = !isFinished,
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF28a745))
@@ -374,7 +387,9 @@ fun RepsModeScreen(
 
             Button(
                 onClick = { onCompleteWorkout(exerciseName.isNotEmpty()) },
-                modifier = Modifier.fillMaxWidth().height(60.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = if (isFinished) Main40 else Color.Gray)
             ) {
@@ -414,7 +429,9 @@ fun StatCard(title: String, value: String, modifier: Modifier = Modifier, isPrim
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -450,6 +467,12 @@ fun SetChecklist(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Box(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "운동 계획",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                )
                 IconButton(
                     onClick = onSettingsClick,
                     modifier = Modifier.align(Alignment.CenterEnd)
@@ -457,6 +480,7 @@ fun SetChecklist(
                     Icon(Icons.Default.Settings, contentDescription = "설정")
                 }
             }
+            Spacer(modifier = Modifier.height(8.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 (1..totalSets).forEach { setNumber ->
                     val isCompleted = setNumber < currentSet
@@ -505,10 +529,12 @@ fun SetItem(
             .clip(RoundedCornerShape(12.dp))
             .background(backgroundColor)
             .border(2.dp, borderColor, RoundedCornerShape(12.dp))
+            .clickable(onClick = onItemClick) // 클릭 범위를 행 전체로 확장
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // 1. 체크 표시/번호 아이콘 (왼쪽 고정)
         Box(
             modifier = Modifier
                 .size(32.dp)
@@ -530,20 +556,27 @@ fun SetItem(
             }
         }
 
-        Column(
-            modifier = Modifier.weight(1f).clickable(onClick = onItemClick)
-        ) {
-            Text(
-                text = "세트 ${index + 1}",
-                fontWeight = FontWeight.Bold,
-                color = when {
-                    isCompleted -> Color(0xFF1E7B3B)
-                    isCurrent -> Main40
-                    else -> MaterialTheme.colorScheme.onSurface
-                }
-            )
-            Text("$reps $unit", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        // 2. 세트 이름 (중앙 왼쪽)
+        Text(
+            text = "세트 ${index + 1}",
+            fontWeight = FontWeight.Bold,
+            color = when {
+                isCompleted -> Color(0xFF1E7B3B)
+                isCurrent -> Main40
+                else -> MaterialTheme.colorScheme.onSurface
+            }
+        )
+
+        // 3. 중간 여백 (이게 오른쪽으로 밀어주는 핵심입니다)
+        Spacer(modifier = Modifier.weight(1f))
+
+        // 4. 횟수 및 단위 (오른쪽 끝 고정)
+        Text(
+            text = "$reps $unit",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -558,7 +591,9 @@ fun RestTimerBar(viewModel: TimerViewModel) {
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -580,7 +615,7 @@ fun RestTimerBar(viewModel: TimerViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsDialog(
+fun SettingsSheet(
     totalSets: Int,
     restTime: Int,
     workoutType: String,
@@ -591,89 +626,144 @@ fun SettingsDialog(
     onClearWorkout: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var localSets by remember { mutableStateOf(totalSets.toString()) }
-    var localTime by remember { mutableStateOf(restTime.toString()) }
-    var expanded by remember { mutableStateOf(false) }
-    val workoutTypes = listOf("reps", "time")
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+    var localSets by remember { mutableIntStateOf(totalSets) }
+    var localRestTime by remember { mutableIntStateOf(restTime) }
+    val workoutTypes = listOf("횟수" to "reps", "시간" to "time")
 
-    AlertDialog(
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("설정") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            Text("운동 설정", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
 
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
-                ) {
-                    OutlinedTextField(
-                        value = if (workoutType == "reps") "횟수" else "시간",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("운동 방식") },
-                        enabled = !isWorkoutStarted,
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                        },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        workoutTypes.forEach { type ->
-                            DropdownMenuItem(
-                                text = { Text(if (type == "reps") "횟수" else "시간") },
-                                onClick = {
-                                    onWorkoutTypeChange(type)
-                                    expanded = false
-                                }
-                            )
+            // 운동 방식
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("운동 방식", style = MaterialTheme.typography.titleMedium)
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    workoutTypes.forEach { (label, type) ->
+                        SegmentedButton(
+                            shape = RoundedCornerShape(50),
+                            onClick = { onWorkoutTypeChange(type) },
+                            selected = workoutType == type,
+                            enabled = !isWorkoutStarted
+                        ) {
+                            Text(label)
                         }
                     }
                 }
+            }
 
-                OutlinedTextField(
-                    value = localSets,
-                    onValueChange = { localSets = it },
-                    label = { Text("총 세트 수") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = localTime,
-                    onValueChange = { localTime = it },
-                    label = { Text("휴식 시간 (초)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (isWorkoutStarted) {
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedButton(
-                        onClick = {
-                            onClearWorkout()
-                            onDismiss()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("운동 등록 해제")
-                    }
+
+            // 총 세트 수
+            NumberPicker(
+                label = "총 세트 수",
+                value = localSets,
+                onValueChange = { localSets = it },
+                range = 1..99,
+                unit = "세트"
+            )
+
+            // 휴식 시간
+            NumberPicker(
+                label = "휴식 시간",
+                value = localRestTime,
+                onValueChange = { localRestTime = it },
+                range = 0..300,
+                step = 5,
+                unit = "초"
+            )
+
+
+            if (isWorkoutStarted) {
+                OutlinedButton(
+                    onClick = {
+                        onClearWorkout()
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) onDismiss()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                ) {
+                    Text("운동 등록 해제")
                 }
             }
-        },
-        confirmButton = {
-            Button(onClick = {
-                localSets.toIntOrNull()?.let(onTotalSetsChange)
-                localTime.toIntOrNull()?.let(onRestTimeChange)
-                onDismiss()
-            }, modifier = Modifier.fillMaxWidth()) { Text("완료") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("취소") }
+
+            Button(
+                onClick = {
+                    onTotalSetsChange(localSets)
+                    onRestTimeChange(localRestTime)
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        if (!sheetState.isVisible) onDismiss()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text("완료", style = MaterialTheme.typography.bodyLarge)
+            }
         }
-    )
+    }
 }
+
+@Composable
+fun NumberPicker(
+    label: String,
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    range: IntRange,
+    step: Int = 1,
+    unit: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.titleMedium)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            IconButton(
+                onClick = { onValueChange((value - step).coerceIn(range)) },
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "감소")
+            }
+            Text(
+                text = "$value $unit",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.width(80.dp)
+            )
+            IconButton(
+                onClick = { onValueChange((value + step).coerceIn(range)) },
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "증가")
+            }
+        }
+    }
+}
+
 
 @Composable
 fun EditRepsDialog(
@@ -684,7 +774,7 @@ fun EditRepsDialog(
     onConfirmAll: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var reps by remember { mutableStateOf(initialReps) }
+    var reps by remember { mutableIntStateOf(initialReps) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -699,14 +789,20 @@ fun EditRepsDialog(
                 ) {
                     IconButton(
                         onClick = { reps = (reps - 1).coerceAtLeast(0) },
-                        modifier = Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Icon(Icons.Default.Remove, contentDescription = "-1")
                     }
                     Text("$reps $unit", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Main40)
                     IconButton(
-                        onClick = { reps++ },
-                        modifier = Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
+                        onClick = { reps += 1 },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "+1")
                     }
@@ -765,8 +861,8 @@ fun formatTime(seconds: Int): String {
     val minutes = (seconds % 3600) / 60
     val secs = seconds % 60
     return if (hours > 0) {
-        String.format("%02d:%02d:%02d", hours, minutes, secs)
+        String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, secs)
     } else {
-        String.format("%02d:%02d", minutes, secs)
+        String.format(Locale.getDefault(), "%02d:%02d", minutes, secs)
     }
 }
