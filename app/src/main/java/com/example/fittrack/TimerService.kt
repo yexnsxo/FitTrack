@@ -141,7 +141,6 @@ class TimerService : Service() {
             startRest(_totalTime.value)
         } else if (_currentSet.value == _totalSets.value) {
             _currentSet.value++
-            totalWorkoutTimeJob?.cancel()
         }
         updateNotification()
     }
