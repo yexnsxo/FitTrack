@@ -1,6 +1,7 @@
 package com.example.fittrack
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -38,11 +40,14 @@ fun EditExerciseDialog(
     item: TodayExerciseEntity,
     onDismiss: () -> Unit,
     onConfirmStrength: (sets: Int, repsPerSet: Int) -> Unit,
-    onConfirmDuration: (minutes: Int) -> Unit
+    onConfirmDuration: (sets: Int, minutes: Int) -> Unit
 ) {
-    val isStrength = item.category == "strength"
+    // 횟수 기반 여부를 더 명확하게 판단
+    val isRepBased = remember(item) {
+        item.repsPerSet != null || (item.category == "strength" && item.duration == null)
+    }
 
-    val setsState = remember { mutableIntStateOf(item.sets ?: 3) }
+    val setsState = remember { mutableIntStateOf(item.sets) }
     val repsState = remember { mutableIntStateOf(item.repsPerSet ?: 12) }
     val minutesState = remember { mutableIntStateOf(item.duration ?: 30) }
 
@@ -50,9 +55,22 @@ fun EditExerciseDialog(
     val reps = repsState.intValue
     val minutes = minutesState.intValue
 
-    // ✅ 여기 kcal은 "미리보기"용 (최종 저장 kcal은 ViewModel에서 base로 재계산)
     val kcalBlue = Color(0xFF1A6DED)
-    val previewKcal = item.calories
+
+    val kcalPreview = remember(sets, reps, minutes) {
+        if (isRepBased) {
+            val baseReps = 10.0
+            val oldSets = item.sets.coerceAtLeast(1)
+            val oldReps = (item.repsPerSet ?: 10).coerceAtLeast(1)
+            val baseKcal = item.calories.toDouble() / (oldSets * (oldReps / baseReps))
+            (baseKcal * sets * (reps / baseReps)).roundToInt().coerceAtLeast(0)
+        } else {
+            val oldSets = item.sets.coerceAtLeast(1)
+            val oldMin = (item.duration ?: 5).coerceAtLeast(1)
+            val kcalPerUnit = item.calories.toDouble() / (oldSets * oldMin)
+            (kcalPerUnit * sets * minutes).roundToInt().coerceAtLeast(0)
+        }
+    }
 
     val diffLabel = when (item.difficulty) {
         "beginner" -> "초급"
@@ -84,44 +102,43 @@ fun EditExerciseDialog(
     Dialog(onDismissRequest = onDismiss) {
         val shape = RoundedCornerShape(26.dp)
 
-        val kcalPreview = run {
-            if (isStrength) {
-                val baseReps = 10.0
-
-                val oldSets = (item.sets ?: 1).coerceAtLeast(1)
-                val oldReps = (item.repsPerSet ?: 10).coerceAtLeast(1)
-
-                // item.calories = oldSets/oldReps 기준 칼로리라고 보고 역산해서 "기준 칼로리"를 구함
-                val baseKcal = item.calories / (oldSets * (oldReps / baseReps))
-
-                (baseKcal * sets * (reps / baseReps)).roundToInt().coerceAtLeast(0)
-            } else {
-                val oldMin = (item.duration ?: 5).coerceAtLeast(1)
-                val kcalPerMin = item.calories.toDouble() / oldMin
-                (kcalPerMin * minutes).roundToInt().coerceAtLeast(0)
-            }
-        }
-
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = shape,
             color = Color.White
         ) {
             Column {
-                // 헤더(동일)
-                Box(
+                // ✅ 헤더: Row와 weight(1f)를 사용하여 글자가 길어지면 줄바꿈되도록 수정
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
                         .background(Main40)
-                        .padding(horizontal = 18.dp, vertical = 16.dp)
+                        .padding(start = 18.dp, top = 16.dp, end = 8.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Column(modifier = Modifier.align(Alignment.CenterStart)) {
-                        Text(item.name, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = item.name,
+                            color = Color.White,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            lineHeight = 32.sp
+                        )
                         Spacer(Modifier.height(6.dp))
-                        Text(item.description, color = Color.White.copy(alpha = 0.9f), fontSize = 16.sp)
+                        Text(
+                            text = item.description,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 16.sp,
+                            lineHeight = 20.sp
+                        )
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd)) {
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(40.dp)
+                    ) {
                         Icon(Icons.Filled.Close, contentDescription = "닫기", tint = Color.White)
                     }
                 }
@@ -144,16 +161,16 @@ fun EditExerciseDialog(
                     modifier = Modifier.padding(horizontal = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    if (isStrength) {
-                        Text("세트 수 *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                        NumberStepperFieldStepOnly(
-                            value = sets,
-                            onValueChange = { setsState.intValue = it },
-                            min = 1,
-                            max = 50,
-                            step = 1
-                        )
+                    Text("세트 수 *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
+                    NumberStepperFieldStepOnly(
+                        value = sets,
+                        onValueChange = { setsState.intValue = it },
+                        min = 1,
+                        max = 50,
+                        step = 1
+                    )
 
+                    if (isRepBased) {
                         Text("횟수 (회) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
                         NumberStepperFieldEditable(
                             value = reps,
@@ -176,7 +193,7 @@ fun EditExerciseDialog(
 
                     Button(
                         onClick = {
-                            if (isStrength) onConfirmStrength(sets, reps) else onConfirmDuration(minutes)
+                            if (isRepBased) onConfirmStrength(sets, reps) else onConfirmDuration(sets, minutes)
                         },
                         modifier = Modifier.fillMaxWidth().height(60.dp),
                         shape = RoundedCornerShape(22.dp),

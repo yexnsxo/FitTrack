@@ -221,7 +221,12 @@ fun RecordCalendar(
 fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
     Column {
         exercises.forEach { exercise ->
-            Text(text = "${exercise.name} - ${exercise.sets} sets, ${exercise.repsPerSet} reps")
+            val amountText = if (exercise.duration != null) {
+                "${exercise.duration} mins"
+            } else {
+                "${exercise.repsPerSet} reps"
+            }
+            Text(text = "${exercise.name} - ${exercise.sets} sets, $amountText")
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.example.fittrack
 
-import android.R.attr.shape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -48,13 +47,24 @@ fun AddExerciseDialog(
     exercise: Exercise,
     onDismiss: () -> Unit,
     onConfirmStrength: (sets: Int, repsPerSet: Int) -> Unit,
-    onConfirmDuration: (minutes: Int) -> Unit
+    onConfirmDuration: (sets: Int, minutes: Int) -> Unit
 ) {
-    val isStrength = exercise.category == "strength"
+    // ✅ 횟수 기반인지 시간 기반인지 판단 로직 개선
+    // 1. repsPerSet이 있으면 횟수 기반
+    // 2. duration이 있으면 시간 기반
+    // 3. 둘 다 없으면 카테고리가 strength인 경우 횟수 기반으로 간주
+    val isRepBased = remember(exercise) {
+        when {
+            exercise.repsPerSet != null -> true
+            exercise.duration != null -> false
+            exercise.category == "strength" -> true
+            else -> false
+        }
+    }
 
     val setsState = remember { mutableIntStateOf(3) }
-    val repsState = remember { mutableIntStateOf(12) }
-    val minutesState = remember { mutableIntStateOf(30) }
+    val repsState = remember { mutableIntStateOf(exercise.repsPerSet ?: 12) }
+    val minutesState = remember { mutableIntStateOf(exercise.duration ?: 30) }
 
     val sets = setsState.intValue
     val reps = repsState.intValue
@@ -63,12 +73,12 @@ fun AddExerciseDialog(
     val kcalBlue = Color(0xFF1A6DED)
 
     val kcal = remember(exercise, sets, reps, minutes) {
-        if (isStrength) {
+        if (isRepBased) {
             val baseReps = 10.0
             (exercise.calories * sets * (reps / baseReps)).roundToInt()
         } else {
             val baseMin = (exercise.duration ?: 5).toDouble()
-            (exercise.calories * (minutes / baseMin)).roundToInt()
+            (exercise.calories * sets * (minutes / baseMin)).roundToInt()
         }.coerceAtLeast(0)
     }
 
@@ -109,32 +119,36 @@ fun AddExerciseDialog(
             color = Color.White
         ) {
             Column {
-                // 헤더
-                Box(
+                // ✅ 헤더: Row와 weight(1f)를 사용하여 글자가 길어지면 줄바꿈되도록 수정
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
                         .background(Main40)
-                        .padding(horizontal = 18.dp, vertical = 16.dp)
+                        .padding(start = 18.dp, top = 16.dp, end = 8.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Column(modifier = Modifier.align(Alignment.CenterStart)) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = exercise.name,
                             color = Color.White,
                             fontSize = 26.sp,
-                            fontWeight = FontWeight.ExtraBold
+                            fontWeight = FontWeight.ExtraBold,
+                            lineHeight = 32.sp
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
                             text = exercise.description,
                             color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 16.sp
+                            fontSize = 16.sp,
+                            lineHeight = 20.sp
                         )
                     }
 
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.align(Alignment.TopEnd)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(Icons.Filled.Close, contentDescription = "닫기", tint = Color.White)
                     }
@@ -174,16 +188,17 @@ fun AddExerciseDialog(
                     modifier = Modifier.padding(horizontal = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    if (isStrength) {
-                        Text("세트 수 *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                        NumberStepperFieldStepOnly(
-                            value = sets,
-                            onValueChange = { setsState.intValue = it },
-                            min = 1,
-                            max = 50,
-                            step = 1
-                        )
+                    // 모든 운동에서 세트 수는 필수
+                    Text("세트 수 *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
+                    NumberStepperFieldStepOnly(
+                        value = sets,
+                        onValueChange = { setsState.intValue = it },
+                        min = 1,
+                        max = 50,
+                        step = 1
+                    )
 
+                    if (isRepBased) {
                         Text("횟수 (회) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
                         NumberStepperFieldEditable(
                             value = reps,
@@ -206,8 +221,8 @@ fun AddExerciseDialog(
 
                     Button(
                         onClick = {
-                            if (isStrength) onConfirmStrength(sets, reps)
-                            else onConfirmDuration(minutes)
+                            if (isRepBased) onConfirmStrength(sets, reps)
+                            else onConfirmDuration(sets, minutes)
                         },
                         modifier = Modifier
                             .fillMaxWidth()

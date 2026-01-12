@@ -67,7 +67,6 @@ fun TodoScreen(
     vm: TodoViewModel = viewModel(factory = TodoViewModelFactory(LocalContext.current.applicationContext)),
     recordViewModel: RecordViewModel,
     navController: NavController,
-    timerViewModel: TimerViewModel
 ) {
     val progress by vm.progress.collectAsState()
     val selected by vm.selectedCategory.collectAsState()
@@ -78,8 +77,6 @@ fun TodoScreen(
     var showInitialDialog by remember { mutableStateOf(false) }
     var showPhotoDialog by remember { mutableStateOf(false) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
-
-    val totalWorkoutTime by timerViewModel.totalWorkoutTime.collectAsState()
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
@@ -118,7 +115,7 @@ fun TodoScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            item { ProgressOverview(completedCount = progress.completedCount, totalCount = progress.totalCount, caloriesSum = progress.caloriesSum, totalWorkoutTime = totalWorkoutTime) }
+            item { ProgressOverview(completedCount = progress.completedCount, totalCount = progress.totalCount, caloriesSum = progress.caloriesSum) }
 
             item {
                 TodayListCard(
@@ -270,7 +267,7 @@ fun PercentProgressRing(
 }
 
 @Composable
-fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int, totalWorkoutTime: Int) {
+fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int) {
     Spacer(Modifier.height(10.dp))
 
     val shape = RoundedCornerShape(18.dp)
@@ -296,20 +293,12 @@ fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int, tot
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(
-                        text = "오늘의 운동",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = formatTime(totalWorkoutTime),
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                text = "오늘의 운동",
+                color = Color.White,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

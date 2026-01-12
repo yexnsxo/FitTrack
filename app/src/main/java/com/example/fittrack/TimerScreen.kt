@@ -1,9 +1,5 @@
 package com.example.fittrack
 
-import android.Manifest
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,10 +19,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fittrack.ui.theme.Main40
+import kotlinx.coroutines.delay
 
 @Composable
-fun TimerScreen(viewModel: TimerViewModel) {
+fun TimerScreen(viewModel: TimerViewModel = viewModel()) {
 
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showEditRepsDialogForSet by remember { mutableStateOf<Int?>(null) }
@@ -101,29 +99,13 @@ fun RepsModeScreen(
     onSettingsClick: () -> Unit
 ) {
     val isWorkoutStarted by viewModel.isWorkoutStarted.collectAsState()
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            if (isGranted) {
-                viewModel.startWorkout()
-            } else {
-                // 사용자가 권한을 거부했을 때의 처리, 예를 들어 스낵바 표시 등
-            }
-        }
-    )
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (isWorkoutStarted) {
             StatsCards(viewModel)
         } else {
             Button(
-                onClick = { 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        viewModel.startWorkout()
-                    }
-                 },
+                onClick = { viewModel.startWorkout() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(60.dp),
@@ -193,7 +175,14 @@ fun StatsCards(viewModel: TimerViewModel) {
     val totalSets by viewModel.totalSets.collectAsState()
     val currentSet by viewModel.currentSet.collectAsState()
     val setReps by viewModel.setReps.collectAsState()
-    val totalWorkoutTime by viewModel.totalWorkoutTime.collectAsState()
+    var totalWorkoutTime by remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) { // Simplified timer for display
+        while (true) {
+            delay(1000)
+            totalWorkoutTime++
+        }
+    }
 
     val completedSets = (currentSet - 1).coerceAtLeast(0)
     val totalReps = setReps.take(completedSets).sum()

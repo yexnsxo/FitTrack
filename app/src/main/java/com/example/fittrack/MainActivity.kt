@@ -1,6 +1,5 @@
 package com.example.fittrack
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,10 +26,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,7 +40,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.fittrack.ui.theme.FitTrackTheme
 import com.example.fittrack.ui.theme.Main40
@@ -57,68 +54,36 @@ enum class Destination(
     RECORD("record", "Record", Icons.Filled.CameraEnhance, "Record"),
     TIMER("timer", "Timer", Icons.Filled.AccessTime, "Timer")
 }
-
 class MainActivity : ComponentActivity() {
 
     private val recordViewModel: RecordViewModel by viewModels { RecordViewModelFactory(application) }
     private val timerViewModel: TimerViewModel by viewModels()
 
-    private var intentToProcess by mutableStateOf<Intent?>(null)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        intentToProcess = intent
         enableEdgeToEdge()
-        timerViewModel.bindService(this)
         setContent {
             FitTrackTheme {
-                MainScreen(
+                BottomNavigationBar(
                     modifier = Modifier.fillMaxSize(),
                     recordViewModel = recordViewModel,
-                    timerViewModel = timerViewModel,
-                    intentToProcess = intentToProcess,
-                    onIntentProcessed = { intentToProcess = null }
+                    timerViewModel = timerViewModel
+                )
+                MainScreen(
+                    modifier = Modifier,
+                    recordViewModel = recordViewModel,
+                    timerViewModel = timerViewModel
                 )
             }
         }
     }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        intentToProcess = intent
-    }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        timerViewModel.unbindService(this)
-    }
 }
 
 @Composable
-fun MainScreen(
-    modifier: Modifier,
-    recordViewModel: RecordViewModel,
-    timerViewModel: TimerViewModel,
-    intentToProcess: Intent?,
-    onIntentProcessed: () -> Unit
-) {
+fun MainScreen(modifier: Modifier, recordViewModel: RecordViewModel, timerViewModel: TimerViewModel) {
     val navController = rememberNavController()
     val startDestination = Destination.TODO
-
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-
-    LaunchedEffect(intentToProcess) {
-        if (intentToProcess != null) {
-            intentToProcess.getStringExtra("destination")?.let {
-                navController.navigate(it) {
-                    popUpTo(navController.graph.startDestinationId)
-                    launchSingleTop = true
-                }
-            }
-            onIntentProcessed()
-        }
-    }
+    var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -127,16 +92,12 @@ fun MainScreen(
         topBar = { Header() },
         bottomBar = {
             NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-                Destination.entries.forEach { destination ->
+                Destination.entries.forEachIndexed { index, destination ->
                     NavigationBarItem(
-                        selected = currentRoute == destination.route,
+                        selected = selectedDestination == index,
                         onClick = {
-                            if (currentRoute != destination.route) {
-                                navController.navigate(destination.route) {
-                                    popUpTo(navController.graph.startDestinationId)
-                                    launchSingleTop = true
-                                }
-                            }
+                            navController.navigate(destination.route)
+                            selectedDestination = index
                         },
                         icon = { Icon(destination.icon, contentDescription = destination.contentDescription) },
                         label = { Text(destination.label) }
@@ -197,21 +158,59 @@ fun AppNavHost(
     NavHost(
         navController,
         startDestination = startDestination.route,
-        modifier = modifier
+        modifier=modifier
     ) {
         Destination.entries.forEach { destination ->
             composable(destination.route) {
                 when (destination) {
-                    Destination.TODO -> TodoScreen(
-                        navController = navController,
-                        recordViewModel = recordViewModel,
-                        timerViewModel = timerViewModel
-                    )
-
+                    Destination.TODO -> TodoScreen(navController = navController, recordViewModel = recordViewModel)
                     Destination.RECORD -> RecordScreen(viewModel = recordViewModel)
                     Destination.TIMER -> TimerScreen(viewModel = timerViewModel)
                 }
             }
         }
+    }
+}
+
+@Composable
+fun BottomNavigationBar(
+    modifier: Modifier = Modifier,
+    recordViewModel: RecordViewModel,
+    timerViewModel: TimerViewModel
+) {
+    val navController = rememberNavController()
+    val startDestination = Destination.TODO
+    var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
+
+    Scaffold(
+        modifier = modifier,
+        bottomBar = {
+            NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
+                Destination.entries.forEachIndexed { index, destination ->
+                    NavigationBarItem(
+                        selected = selectedDestination == index,
+                        onClick = {
+                            navController.navigate(route = destination.route)
+                            selectedDestination = index
+                        },
+                        icon = {
+                            Icon(
+                                destination.icon,
+                                contentDescription = destination.contentDescription
+                            )
+                        },
+                        label = { Text(destination.label) }
+                    )
+                }
+            }
+        }
+    ) { contentPadding ->
+        AppNavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = Modifier.padding(contentPadding),
+            recordViewModel = recordViewModel,
+            timerViewModel = timerViewModel
+        )
     }
 }
