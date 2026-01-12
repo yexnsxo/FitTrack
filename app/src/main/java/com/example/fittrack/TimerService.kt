@@ -62,6 +62,9 @@ class TimerService : Service() {
     private val _setReps = MutableStateFlow(List(_totalSets.value) { 10 })
     val setReps = _setReps.asStateFlow()
 
+    private val _setWeights = MutableStateFlow(List(_totalSets.value) { 0 })
+    val setWeights = _setWeights.asStateFlow()
+
 
     companion object {
         const val CHANNEL_ID = "TimerServiceChannel"
@@ -105,6 +108,7 @@ class TimerService : Service() {
         _workoutType.value = type
         _totalSets.value = targetSets.coerceAtLeast(1)
         _setReps.value = List(targetSets) { target }
+        _setWeights.value = List(targetSets) { 0 }
         _currentSet.value = 1
     }
 
@@ -163,6 +167,7 @@ class TimerService : Service() {
         _isWorkoutStarted.value = false
         _currentSet.value = 1
         _setReps.value = List(_totalSets.value) { 10 }
+        _setWeights.value = List(_totalSets.value) { 0 }
         _targetRowId.value = null
         _exerciseName.value = ""
         _workoutType.value = "reps"
@@ -243,6 +248,8 @@ class TimerService : Service() {
             _totalSets.value = count
             val currentReps = _setReps.value
             _setReps.value = List(count) { index -> currentReps.getOrNull(index) ?: 10 }
+            val currentWeights = _setWeights.value
+            _setWeights.value = List(count) { index -> currentWeights.getOrNull(index) ?: 0 }
             if (_currentSet.value > count) {
                 _currentSet.value = count
             }
@@ -257,6 +264,15 @@ class TimerService : Service() {
             _setReps.value = updatedReps
         }
     }
+
+    fun setWeightForSet(set: Int, weight: Int) {
+        if (set > 0 && set <= _setWeights.value.size) {
+            val updatedWeights = _setWeights.value.toMutableList()
+            updatedWeights[set - 1] = weight
+            _setWeights.value = updatedWeights
+        }
+    }
+
     fun setWorkoutType(type: String) {
         _workoutType.value = type
     }
