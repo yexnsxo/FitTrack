@@ -64,7 +64,8 @@ import java.util.Locale
 
 @Composable
 fun TodoScreen(
-    vm: TodoViewModel = viewModel(factory = TodoViewModelFactory(LocalContext.current.applicationContext)),
+    vm: TodoViewModel,
+    timerViewModel: TimerViewModel, // ✅ 파라미터 추가
     recordViewModel: RecordViewModel,
     navController: NavController,
 ) {
@@ -127,28 +128,33 @@ fun TodoScreen(
                 ProgressOverview(
                     completedCount = progress.completedCount,
                     totalCount = progress.totalCount,
-                    caloriesSum = progress.caloriesSum
+                    caloriesSum = progress.caloriesSum,
+                    totalDurationSec = progress.totalDurationSec
                 )
             }
 
             item {
                 TodayListCard(
                     items = todayList,
-                    onToggle = { item, checked -> vm.toggleCompleted(item.rowId, checked) },
+                    onToggle = { item, checked -> 
+                        vm.toggleCompleted(item.rowId, checked)
+                        // ✅ 체크 해제 시 타이머 초기화 연동
+                        if (!checked) {
+                            timerViewModel.resetIfMatches(item.rowId)
+                        }
+                    },
                     onDelete = { item -> vm.deleteTodayRow(item.rowId) },
                     onEditStrength = { item, sets, reps ->
-                        vm.updateTodayRowStrength(
-                            item,
-                            sets,
-                            reps
-                        )
+                        vm.updateTodayRowStrength(item, sets, reps)
                     },
                     onEditDuration = { item, sets, minutes ->
-                        vm.updateTodayRowDuration(
-                            item,
-                            sets,
-                            minutes
-                        )
+                        vm.updateTodayRowDuration(item, sets, minutes)
+                    },
+                    onTimerClick = { item ->
+                        val target = item.repsPerSet ?: item.duration ?: 0
+                        val type = if (item.repsPerSet != null) "reps" else "time"
+                        val sets = item.sets
+                        navController.navigate("timer?rowId=${item.rowId}&name=${item.name}&target=$target&type=$type&sets=$sets")
                     }
                 )
             }
@@ -174,7 +180,6 @@ fun TodoScreen(
             }
         }
 
-        // ✅ "오늘 운동 남기기" 및 사진 관련 다이얼로그 (운동 완료 후 기록 시)
         if (showInitialDialog) {
             AlertDialog(
                 onDismissRequest = { showInitialDialog = false },
@@ -232,7 +237,6 @@ fun TodoScreen(
             )
         }
 
-        // ✅ 1. "오늘 운동에 추가" 모달 (카탈로그에서 운동 선택 시)
         pendingAddState.value?.let { pending ->
             AddExerciseDialog(
                 exercise = pending,
@@ -248,7 +252,6 @@ fun TodoScreen(
             )
         }
 
-        // ✅ 2. "운동 직접 추가" 모달 (신규 생성용)
         if (showDirectAddState.value) {
             AddCustomExerciseDialog(
                 onDismiss = { showDirectAddState.value = false },
@@ -262,50 +265,7 @@ fun TodoScreen(
 }
 
 @Composable
-fun PercentProgressRing(
-    completedCount: Int,
-    totalCount: Int,
-    modifier: Modifier = Modifier,
-    strokeWidth: androidx.compose.ui.unit.Dp = 8.dp
-) {
-    val progress = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f
-    val p = progress.coerceIn(0f, 1f)
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val stroke = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
-
-            drawArc(
-                color = Color.White.copy(alpha = 0.30f),
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = stroke
-            )
-
-            drawArc(
-                color = Color.White,
-                startAngle = -90f,
-                sweepAngle = 360f * p,
-                useCenter = false,
-                style = stroke
-            )
-        }
-
-        Text(
-            text = "${(p * 100).toInt()}%",
-            color = Color.White,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int) {
+fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int, totalDurationSec: Int) {
     Spacer(Modifier.height(10.dp))
 
     val shape = RoundedCornerShape(18.dp)
@@ -356,7 +316,7 @@ fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int) {
                             Text(
                                 text = "${completedCount}/${totalCount}",
                                 color = Color.White,
-                                fontSize = 28.sp,
+                                fontSize = 26.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
@@ -372,13 +332,41 @@ fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int) {
                             horizontalAlignment = Alignment.Start
                         ) {
                             Text(
-                                "$caloriesSum",
+                                text = "${caloriesSum}kcal",
                                 color = Color.White,
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                "소모 칼로리",
+                                "총 칼로리",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            val h = totalDurationSec / 3600
+                            val m = (totalDurationSec % 3600) / 60
+                            val s = totalDurationSec % 60
+                            
+                            val timeText = when {
+                                h > 0 -> if (s > 0) "${h}시간 ${m}분 ${s}초" else "${h}시간 ${m}분"
+                                m > 0 -> if (s > 0) "${m}분 ${s}초" else "${m}분"
+                                else -> "${s}초"
+                            }
+                            
+                            Text(
+                                text = timeText,
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "총 운동 시간",
                                 color = Color.White.copy(alpha = 0.85f),
                                 fontSize = 12.sp
                             )
@@ -387,13 +375,55 @@ fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int) {
                         PercentProgressRing(
                             completedCount = completedCount,
                             totalCount = totalCount,
-                            modifier = Modifier.size(80.dp)
+                            modifier = Modifier.size(70.dp)
                         )
                     }
                 }
-
             }
         }
+    }
+}
+
+@Composable
+fun PercentProgressRing(
+    completedCount: Int,
+    totalCount: Int,
+    modifier: Modifier = Modifier,
+    strokeWidth: androidx.compose.ui.unit.Dp = 8.dp
+) {
+    val progress = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f
+    val p = progress.coerceIn(0f, 1f)
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
+
+            drawArc(
+                color = Color.White.copy(alpha = 0.30f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = stroke
+            )
+
+            drawArc(
+                color = Color.White,
+                startAngle = -90f,
+                sweepAngle = 360f * p,
+                useCenter = false,
+                style = stroke
+            )
+        }
+
+        Text(
+            text = "${(p * 100).toInt()}%",
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -541,12 +571,11 @@ fun AllExercisesDoneCard(
 }
 
 fun createImageFile(context: Context): File {
-    // Create an image file name
     val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     val storageDir: File? = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
     return File.createTempFile(
-        "JPEG_${timeStamp}_", /* prefix */
-        ".jpg", /* suffix */
-        storageDir /* directory */
+        "JPEG_${timeStamp}_",
+        ".jpg",
+        storageDir
     )
 }
