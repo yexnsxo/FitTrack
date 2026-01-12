@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -256,6 +257,11 @@ fun Header() {
                 contentDescription = "App Logo",
                 modifier = Modifier
                     .height(60.dp) // 이미지 높이 조절
+            )
+            Text(
+                text = "오늘도 득근하세요!",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 14.sp
             )
         }
     }
