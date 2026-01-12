@@ -1,35 +1,20 @@
 package com.example.fittrack
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CameraEnhance
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarDefaults
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,10 +22,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.compose.*
+import androidx.navigation.navArgument
 import com.example.fittrack.ui.theme.FitTrackTheme
 import com.example.fittrack.ui.theme.Main40
 
@@ -48,14 +35,13 @@ enum class Destination(
     val route: String,
     val label: String,
     val icon: ImageVector,
-    val contentDescription: String,
 ) {
-    TODO("todo", "Todo", Icons.Filled.Check, ""),
-    RECORD("record", "Record", Icons.Filled.CameraEnhance, "Record"),
-    TIMER("timer", "Timer", Icons.Filled.AccessTime, "Timer")
+    TODO("todo", "Todo", Icons.Filled.Check),
+    RECORD("record", "Record", Icons.Filled.CameraEnhance),
+    TIMER("timer", "Timer", Icons.Filled.AccessTime)
 }
-class MainActivity : ComponentActivity() {
 
+class MainActivity : ComponentActivity() {
     private val recordViewModel: RecordViewModel by viewModels { RecordViewModelFactory(application) }
     private val timerViewModel: TimerViewModel by viewModels()
 
@@ -64,58 +50,109 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FitTrackTheme {
-                BottomNavigationBar(
-                    modifier = Modifier.fillMaxSize(),
-                    recordViewModel = recordViewModel,
-                    timerViewModel = timerViewModel
-                )
-                MainScreen(
-                    modifier = Modifier,
-                    recordViewModel = recordViewModel,
-                    timerViewModel = timerViewModel
-                )
+                MainScreen(recordViewModel, timerViewModel)
             }
         }
     }
 }
 
 @Composable
-fun MainScreen(modifier: Modifier, recordViewModel: RecordViewModel, timerViewModel: TimerViewModel) {
+fun MainScreen(recordViewModel: RecordViewModel, timerViewModel: TimerViewModel) {
     val navController = rememberNavController()
-    val startDestination = Destination.TODO
-    var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+
+    LaunchedEffect(navBackStackEntry) {
+        Log.d("NAV", "current route = ${navBackStackEntry?.destination?.route}")
+    }
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         containerColor = Color(0xffFFFEF4),
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { Header() },
         bottomBar = {
-            NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-                Destination.entries.forEachIndexed { index, destination ->
+            NavigationBar {
+                Destination.entries.forEach { destination ->
+                    val currentRoute = currentDestination?.route?.substringBefore("?")
+                    val selected = currentRoute == destination.route
+
                     NavigationBarItem(
-                        selected = selectedDestination == index,
+                        selected = selected,
                         onClick = {
-                            navController.navigate(destination.route)
-                            selectedDestination = index
+                            if (currentRoute != destination.route) {
+                                when (destination) {
+                                    Destination.TODO -> {
+                                        // ✅ Todo로 복귀 시 Timer 스택을 제거하여 꼬임 방지
+                                        navController.popBackStack(Destination.TODO.route, inclusive = false)
+                                    }
+                                    else -> {
+                                        navController.navigate(destination.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                            }
                         },
-                        icon = { Icon(destination.icon, contentDescription = destination.contentDescription) },
+                        icon = { Icon(destination.icon, contentDescription = null) },
                         label = { Text(destination.label) }
                     )
                 }
             }
         }
     ) { innerPadding ->
-        AppNavHost(
+        // ✅ 4. 라우트 패턴 수정: sets 추가
+        val timerPattern = "${Destination.TIMER.route}?rowId={rowId}&name={name}&target={target}&type={type}&sets={sets}"
+
+        NavHost(
             navController = navController,
-            startDestination = startDestination,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding),
-            recordViewModel = recordViewModel,
-            timerViewModel = timerViewModel
-        )
+            startDestination = Destination.TODO.route,
+            modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
+        ) {
+            composable(Destination.TODO.route) {
+                TodoScreen(navController = navController, recordViewModel = recordViewModel)
+            }
+            composable(Destination.RECORD.route) {
+                RecordScreen(viewModel = recordViewModel)
+            }
+            composable(
+                route = timerPattern,
+                arguments = listOf(
+                    navArgument("rowId") { type = NavType.LongType; defaultValue = -1L },
+                    navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("target") { type = NavType.IntType; defaultValue = 0 },
+                    navArgument("type") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("sets") { type = NavType.IntType; defaultValue = 0 } // ✅ sets 추가
+                )
+            ) { backStackEntry ->
+                val rowId = backStackEntry.arguments?.getLong("rowId") ?: -1L
+                val name = backStackEntry.arguments?.getString("name") ?: ""
+                val target = backStackEntry.arguments?.getInt("target") ?: 0
+                val type = backStackEntry.arguments?.getString("type") ?: ""
+                val sets = backStackEntry.arguments?.getInt("sets") ?: 0 // ✅ sets 추출
+
+                LaunchedEffect(rowId) {
+                    if (rowId != -1L) {
+                        // ✅ ViewModel 초기화 시 세트 정보도 함께 전달
+                        timerViewModel.initWorkout(rowId, name, target, type, sets)
+                    }
+                }
+
+                TimerScreen(
+                    viewModel = timerViewModel,
+                    onFinish = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate(Destination.TODO.route) {
+                                popUpTo(navController.graph.findStartDestination().id)
+                            }
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -125,92 +162,14 @@ fun Header() {
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .height(120.dp)
+            .height(100.dp)
             .background(Main40)
-            .padding(horizontal = 24.dp, vertical = 0.dp),
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Column(
-            modifier = Modifier.align(Alignment.CenterStart)
-        ) {
-            Text(
-                text = "FitTrack",
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "당신의 운동 파트너",
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 14.sp
-            )
+        Column {
+            Text(text = "FitTrack", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(text = "당신의 운동 파트너", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
         }
-    }
-}
-
-@Composable
-fun AppNavHost(
-    navController: NavHostController,
-    startDestination: Destination,
-    modifier: Modifier = Modifier,
-    recordViewModel: RecordViewModel,
-    timerViewModel: TimerViewModel
-) {
-    NavHost(
-        navController,
-        startDestination = startDestination.route,
-        modifier=modifier
-    ) {
-        Destination.entries.forEach { destination ->
-            composable(destination.route) {
-                when (destination) {
-                    Destination.TODO -> TodoScreen(navController = navController, recordViewModel = recordViewModel)
-                    Destination.RECORD -> RecordScreen(viewModel = recordViewModel)
-                    Destination.TIMER -> TimerScreen(viewModel = timerViewModel)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun BottomNavigationBar(
-    modifier: Modifier = Modifier,
-    recordViewModel: RecordViewModel,
-    timerViewModel: TimerViewModel
-) {
-    val navController = rememberNavController()
-    val startDestination = Destination.TODO
-    var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
-
-    Scaffold(
-        modifier = modifier,
-        bottomBar = {
-            NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-                Destination.entries.forEachIndexed { index, destination ->
-                    NavigationBarItem(
-                        selected = selectedDestination == index,
-                        onClick = {
-                            navController.navigate(route = destination.route)
-                            selectedDestination = index
-                        },
-                        icon = {
-                            Icon(
-                                destination.icon,
-                                contentDescription = destination.contentDescription
-                            )
-                        },
-                        label = { Text(destination.label) }
-                    )
-                }
-            }
-        }
-    ) { contentPadding ->
-        AppNavHost(
-            navController = navController,
-            startDestination = startDestination,
-            modifier = Modifier.padding(contentPadding),
-            recordViewModel = recordViewModel,
-            timerViewModel = timerViewModel
-        )
     }
 }
