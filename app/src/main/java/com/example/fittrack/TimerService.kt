@@ -252,6 +252,9 @@ class TimerService : Service() {
             _setReps.value = updatedReps
         }
     }
+    fun setWorkoutType(type: String) {
+        _workoutType.value = type
+    }
 
     fun resetToSet(set: Int) {
         if (set > 0 && set <= _totalSets.value) {

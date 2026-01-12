@@ -69,6 +69,7 @@ class TimerViewModel : ViewModel() {
     fun setRestTime(seconds: Int) = timerService?.setRestTime(seconds)
     fun setTotalSets(count: Int) = timerService?.setTotalSets(count)
     fun setRepsForSet(set: Int, reps: Int) = timerService?.setRepsForSet(set, reps)
+    fun setWorkoutType(type: String) = timerService?.setWorkoutType(type)
     fun resetToSet(set: Int) = timerService?.resetToSet(set)
 
     fun getTotalReps(): Int {
