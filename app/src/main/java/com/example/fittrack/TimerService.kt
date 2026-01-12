@@ -54,6 +54,7 @@ class TimerService : Service() {
         const val NOTIFICATION_ID = 1
         const val ACTION_FINISH_SET = "com.example.fittrack.ACTION_FINISH_SET"
         const val ACTION_STOP_REST = "com.example.fittrack.ACTION_STOP_REST"
+        const val ACTION_STOP_WORKOUT = "com.example.fittrack.ACTION_STOP_WORKOUT"
     }
 
     override fun onCreate() {
@@ -65,6 +66,7 @@ class TimerService : Service() {
         when (intent?.action) {
             ACTION_FINISH_SET -> finishSet()
             ACTION_STOP_REST -> stopRest()
+            ACTION_STOP_WORKOUT -> stopWorkout()
         }
         return START_NOT_STICKY
     }
@@ -181,54 +183,58 @@ class TimerService : Service() {
 
 
     private fun createNotification(): Notification {
-        val finishSetIntent = Intent(this, TimerService::class.java).apply {
-            action = ACTION_FINISH_SET
-        }
-        val finishSetPendingIntent = PendingIntent.getService(this, 0, finishSetIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-        val stopRestIntent = Intent(this, TimerService::class.java).apply {
-            action = ACTION_STOP_REST
-        }
-        val stopRestPendingIntent = PendingIntent.getService(this, 1, stopRestIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-
         val notificationIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("destination", "timer")
         }
         val activityPendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            notificationIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val isFinished = currentSet.value > totalSets.value
         val title: String
         val contentText: String
-
-        if (_isResting.value) {
-            title = "휴식 중"
-            contentText = "남은 시간: ${formatTime(_remainingTime.value)}"
-        } else {
-            title = "운동 중"
-            contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 총 시간: ${formatTime(totalWorkoutTime.value)}"
-        }
+        val isOngoing: Boolean
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setOngoing(true)
-            .setAutoCancel(false)
             .setContentIntent(activityPendingIntent)
 
-        if (_isResting.value) {
-             builder.addAction(R.drawable.ic_launcher_foreground, "건너뛰기", stopRestPendingIntent)
+        if (isFinished) {
+            title = "운동 완료!"
+            contentText = "총 운동 시간: ${formatTime(totalWorkoutTime.value)}"
+            isOngoing = false
         } else {
-             builder.addAction(R.drawable.ic_launcher_foreground, "세트 완료", finishSetPendingIntent)
+            isOngoing = true
+            if (_isResting.value) {
+                title = "휴식 중"
+                contentText = "남은 시간: ${formatTime(_remainingTime.value)}"
+                val stopRestIntent = Intent(this, TimerService::class.java).apply {
+                    action = ACTION_STOP_REST
+                }
+                val stopRestPendingIntent = PendingIntent.getService(
+                    this, 1, stopRestIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                builder.addAction(R.drawable.ic_launcher_foreground, "건너뛰기", stopRestPendingIntent)
+            } else {
+                title = "운동 중"
+                contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 총 시간: ${formatTime(totalWorkoutTime.value)}"
+                val finishSetIntent = Intent(this, TimerService::class.java).apply {
+                    action = ACTION_FINISH_SET
+                }
+                val finishSetPendingIntent = PendingIntent.getService(
+                    this, 0, finishSetIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                builder.addAction(R.drawable.ic_launcher_foreground, "세트 완료", finishSetPendingIntent)
+            }
         }
 
-        return builder.build()
+        return builder
+            .setContentTitle(title)
+            .setContentText(contentText)
+            .setOngoing(isOngoing)
+            .setAutoCancel(!isOngoing)
+            .build()
     }
 
     private fun updateNotification() {
@@ -239,9 +245,7 @@ class TimerService : Service() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
-                CHANNEL_ID,
-                "Timer Service Channel",
-                NotificationManager.IMPORTANCE_DEFAULT
+                CHANNEL_ID, "Timer Service Channel", NotificationManager.IMPORTANCE_DEFAULT
             )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)
