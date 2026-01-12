@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -245,22 +246,22 @@ fun Header() {
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .height(100.dp)
+            .height(120.dp)
             .background(Main40)
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Column {
-            Text(
-                text = "FitTrack",
-                color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = R.drawable.header_logo), // 여기에 본인이 저장한 파일 이름 입력
+                contentDescription = "App Logo",
+                modifier = Modifier
+                    .height(60.dp) // 이미지 높이 조절
             )
             Text(
-                text = "당신의 운동 파트너",
+                text = "오늘도 득근하세요!",
                 color = Color.White.copy(alpha = 0.8f),
-                fontSize = 12.sp
+                fontSize = 14.sp
             )
         }
     }
