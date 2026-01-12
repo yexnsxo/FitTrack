@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -40,6 +41,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
 
     val allPhotos: StateFlow<List<Photo>> = photoDao.getAllPhotos()
+        .map { photos -> photos.filter { it.uri != "android.resource://com.example.fittrack/drawable/dumbel" } }
         .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
 
     val exercisesForSelectedDate: StateFlow<List<TodayExerciseEntity>> =
@@ -91,7 +93,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
             val imageUri = uri ?: Uri.parse("android.resource://com.example.fittrack/drawable/dumbel")
             val photo = Photo(
                 uri = imageUri.toString(),
-                date = _selectedDate.value.toString(),
+                date = LocalDate.now().toString(),
                 createdAt = System.currentTimeMillis()
             )
             photoDao.insert(photo)
