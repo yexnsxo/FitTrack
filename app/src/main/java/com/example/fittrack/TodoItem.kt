@@ -210,25 +210,50 @@ private fun TodayRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // ✅ 실제 수행 기록이 있으면 표시
-                        if (item.actualReps > 0) {
+                        // 1. 타이머 기록(actualDurationSec)이 있는지 확인
+                        if (item.actualDurationSec > 0) {
+                            val mins = item.actualDurationSec / 60
+                            val secs = item.actualDurationSec % 60
+                            val timeText = if (mins > 0) "${mins}분 ${secs}초" else "${secs}초"
+
+                            Text(
+                                text = "수행: $timeText",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF10B981) // 완료 시 초록색 계열
+                            )
+                        }
+                        // 2. 타이머 기록은 없지만, 실제 수행 횟수(actualReps)가 있는 경우 (근력 운동 등)
+                        else if (item.actualReps > 0) {
                             val unit = if (item.duration != null) "분" else "회"
-                            Text(text = "수행: ${item.actualReps}$unit", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
-                        } else {
+                            Text(
+                                text = "수행: ${item.actualReps}$unit",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF10B981)
+                            )
+                        }
+                        // 3. 기록이 아무것도 없을 때 (목표치 표시)
+                        else {
                             if (item.repsPerSet != null) {
-                                Text(text = "${item.sets}세트 ${item.repsPerSet}회", fontSize = 15.sp)
+                                // 근력 운동: 세트와 회수 표시
+                                Text(text = "${item.sets}세트 ${item.repsPerSet}회", fontSize = 15.sp, color = Color(0xFF6B7280))
                             } else if (item.duration != null) {
-                                Text(text = "${item.sets}세트 ${item.duration}분", fontSize = 15.sp)
+                                // 유산소 등 시간 기반 운동: 전체 목표 시간 계산 (세트 * 분)
+                                val totalGoalMinutes = item.sets * (item.duration ?: 0)
+                                Text(text = "목표: ${totalGoalMinutes}분", fontSize = 15.sp, color = Color(0xFF6B7280))
                             }
                         }
 
+                        // 칼로리 표시
                         Text(
                             text = "${item.calories} kcal",
-                            color = Color(0xFF2563EB),
+                            color = Color(0xFF2563EB), // 테마색인 블루 계열
                             fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
+
                 }
 
                 if (!selected) {
