@@ -53,7 +53,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.fittrack.data.Exercise
 import com.example.fittrack.ui.theme.Main40
@@ -64,9 +63,10 @@ import java.util.Locale
 
 @Composable
 fun TodoScreen(
-    vm: TodoViewModel = viewModel(factory = TodoViewModelFactory(LocalContext.current.applicationContext)),
+    vm: TodoViewModel,
+    timerViewModel: TimerViewModel, 
     recordViewModel: RecordViewModel,
-    navController: NavController,
+    navController: NavController
 ) {
     val progress by vm.progress.collectAsState()
     val selected by vm.selectedCategory.collectAsState()
@@ -78,52 +78,82 @@ fun TodoScreen(
     var showPhotoDialog by remember { mutableStateOf(false) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) {
-            imageUri?.let { recordViewModel.addPhoto(it) }
+    val cameraLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success) {
+                imageUri?.let { recordViewModel.addPhoto(it) }
+            }
+            navController.navigate("record")
         }
-        navController.navigate("record")
-    }
 
-    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            recordViewModel.addPhoto(it)
+    val galleryLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                recordViewModel.addPhoto(it)
+            }
+            navController.navigate("record")
         }
-        navController.navigate("record")
-    }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) {
-            val newImageFile = createImageFile(context)
-            val newImageUri = FileProvider.getUriForFile(context, "com.example.fittrack.provider", newImageFile)
-            imageUri = newImageUri
-            cameraLauncher.launch(newImageUri)
-        } else {
-            // Handle permission denial
+    val permissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                val newImageFile = createImageFile(context)
+                val newImageUri = FileProvider.getUriForFile(
+                    context,
+                    "com.example.fittrack.provider",
+                    newImageFile
+                )
+                imageUri = newImageUri
+                cameraLauncher.launch(newImageUri)
+            } else {
+                // Handle permission denial
+            }
         }
-    }
 
     val pendingAddState = remember { mutableStateOf<Exercise?>(null) }
+    val showDirectAddState = remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            item { ProgressOverview(completedCount = progress.completedCount, totalCount = progress.totalCount, caloriesSum = progress.caloriesSum) }
+            item {
+                ProgressOverview(
+                    completedCount = progress.completedCount,
+                    totalCount = progress.totalCount,
+                    caloriesSum = progress.caloriesSum,
+                    totalDurationSec = progress.totalDurationSec
+                )
+            }
 
             item {
                 TodayListCard(
                     items = todayList,
-                    onToggle = vm::toggleCompleted,
-                    onDelete = vm::deleteTodayRow,
-                    onEditStrength = vm::updateTodayRowStrength,
-                    onEditDuration = vm::updateTodayRowDuration
+                    onToggle = { item, checked -> 
+                        vm.toggleCompleted(item.rowId, checked)
+                        if (!checked) {
+                            timerViewModel.resetIfMatches(item.rowId)
+                        }
+                    },
+                    onDelete = { item -> vm.deleteTodayRow(item.rowId) },
+                    onEditStrength = { item, sets, reps ->
+                        vm.updateTodayRowStrength(item, sets, reps)
+                    },
+                    onEditDuration = { item, sets, minutes ->
+                        vm.updateTodayRowDuration(item, sets, minutes)
+                    },
+                    onTimerClick = { item ->
+                        val target = item.repsPerSet ?: item.duration ?: 0
+                        val type = if (item.repsPerSet != null) "reps" else "time"
+                        val sets = item.sets
+                        navController.navigate("timer?rowId=${item.rowId}&name=${item.name}&target=$target&type=$type&sets=$sets")
+                    }
                 )
             }
 
@@ -141,9 +171,9 @@ fun TodoScreen(
             item {
                 ExerciseCatalogCard(
                     exercises = filteredCatalog,
-                    onAdd = { ex ->
-                        pendingAddState.value = ex
-                    }
+                    onAdd = { ex -> pendingAddState.value = ex },
+                    onDeleteCustom = { ex -> vm.deleteCustomExercise(ex) },
+                    onOpenDirectAdd = { showDirectAddState.value = true }
                 )
             }
         }
@@ -205,8 +235,7 @@ fun TodoScreen(
             )
         }
 
-        val pending = pendingAddState.value
-        if (pending != null) {
+        pendingAddState.value?.let { pending ->
             AddExerciseDialog(
                 exercise = pending,
                 onDismiss = { pendingAddState.value = null },
@@ -214,11 +243,141 @@ fun TodoScreen(
                     vm.addExerciseToTodayWithSelection(pending, sets, reps)
                     pendingAddState.value = null
                 },
-                onConfirmDuration = { minutes ->
-                    vm.addExerciseToTodayWithDuration(pending, minutes)
+                onConfirmDuration = { sets, minutes ->
+                    vm.addExerciseToTodayWithDuration(pending, sets, minutes)
                     pendingAddState.value = null
                 }
             )
+        }
+
+        if (showDirectAddState.value) {
+            AddCustomExerciseDialog(
+                onDismiss = { showDirectAddState.value = false },
+                onConfirm = { newExercise ->
+                    vm.addCustomExerciseToCatalog(newExercise)
+                    showDirectAddState.value = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int, totalDurationSec: Int) {
+    Spacer(Modifier.height(10.dp))
+
+    val shape = RoundedCornerShape(18.dp)
+    val bg = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFF1F6FF2),
+            Color(0xFF2E86FF)
+        )
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = shape,
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(bg, shape)
+                .padding(16.dp),
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "오늘의 운동",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(
+                                text = "${completedCount}/${totalCount}",
+                                color = Color.White,
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "완료됨",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(
+                                text = "${caloriesSum}kcal",
+                                color = Color.White,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "총 칼로리",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            val h = totalDurationSec / 3600
+                            val m = (totalDurationSec % 3600) / 60
+                            val s = totalDurationSec % 60
+                            
+                            val timeText = when {
+                                h > 0 -> if (s > 0) "${h}시간 ${m}분 ${s}초" else "${h}시간 ${m}분"
+                                m > 0 -> if (s > 0) "${m}분 ${s}초" else "${m}분"
+                                else -> "${s}초"
+                            }
+                            
+                            Text(
+                                text = timeText,
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "총 운동 시간",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        PercentProgressRing(
+                            completedCount = completedCount,
+                            totalCount = totalCount,
+                            modifier = Modifier.size(70.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -260,102 +419,9 @@ fun PercentProgressRing(
         Text(
             text = "${(p * 100).toInt()}%",
             color = Color.White,
-            fontSize = 22.sp,
+            fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
-    }
-}
-
-@Composable
-fun ProgressOverview(completedCount: Int, totalCount: Int, caloriesSum: Int) {
-    Spacer(Modifier.height(10.dp))
-
-    val shape = RoundedCornerShape(18.dp)
-    val bg = Brush.linearGradient(
-        colors = listOf(
-            Color(0xFF1F6FF2),
-            Color(0xFF2E86FF)
-        )
-    )
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = shape,
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(bg, shape)
-                .padding(16.dp),
-        )  {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                text = "오늘의 운동",
-                color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(IntrinsicSize.Min),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxHeight(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            Text(
-                                text = "${completedCount}/${totalCount}",
-                                color = Color.White,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                "완료됨",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 12.sp
-                            )
-                        }
-
-                        Column(
-                            modifier = Modifier.fillMaxHeight(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            Text(
-                                "$caloriesSum",
-                                color = Color.White,
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                "소모 칼로리",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 12.sp
-                            )
-                        }
-
-                        PercentProgressRing(
-                            completedCount = completedCount,
-                            totalCount = totalCount,
-                            modifier = Modifier.size(80.dp)
-                        )
-                    }
-                }
-
-            }
-        }
     }
 }
 
@@ -371,7 +437,12 @@ fun CategoryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
     ) {
         Column(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+            modifier = Modifier.padding(
+                start = 16.dp,
+                end = 16.dp,
+                top = 12.dp,
+                bottom = 16.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("카테고리", fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
@@ -498,12 +569,11 @@ fun AllExercisesDoneCard(
 }
 
 fun createImageFile(context: Context): File {
-    // Create an image file name
     val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     val storageDir: File? = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
     return File.createTempFile(
-        "JPEG_${timeStamp}_", /* prefix */
-        ".jpg", /* suffix */
-        storageDir /* directory */
+        "JPEG_${timeStamp}_",
+        ".jpg",
+        storageDir
     )
 }

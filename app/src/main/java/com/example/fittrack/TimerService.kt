@@ -24,14 +24,29 @@ class TimerService : Service() {
     private var totalWorkoutTimeJob: Job? = null
 
     // Service-managed state
+    private val _targetRowId = MutableStateFlow<Long?>(null)
+    val targetRowId = _targetRowId.asStateFlow()
+
+    private val _exerciseName = MutableStateFlow("")
+    val exerciseName = _exerciseName.asStateFlow()
+
+    private val _workoutType = MutableStateFlow("reps")
+    val workoutType = _workoutType.asStateFlow()
+
     private val _isWorkoutStarted = MutableStateFlow(false)
     val isWorkoutStarted = _isWorkoutStarted.asStateFlow()
 
-    private val _totalTime = MutableStateFlow(60)
-    val totalTime = _totalTime.asStateFlow()
-
     private val _totalWorkoutTime = MutableStateFlow(0)
     val totalWorkoutTime = _totalWorkoutTime.asStateFlow()
+
+    private val _totalRestTime = MutableStateFlow(60)
+    val totalRestTime = _totalRestTime.asStateFlow()
+
+    private val _remainingRestTime = MutableStateFlow(0)
+    val remainingRestTime = _remainingRestTime.asStateFlow()
+
+    private val _isResting = MutableStateFlow(false)
+    val isResting = _isResting.asStateFlow()
 
     private val _totalSets = MutableStateFlow(5)
     val totalSets = _totalSets.asStateFlow()
@@ -41,12 +56,6 @@ class TimerService : Service() {
 
     private val _setReps = MutableStateFlow(List(_totalSets.value) { 10 })
     val setReps = _setReps.asStateFlow()
-
-    private val _remainingTime = MutableStateFlow(0)
-    val remainingTime = _remainingTime.asStateFlow()
-
-    private val _isResting = MutableStateFlow(false)
-    val isResting = _isResting.asStateFlow()
 
 
     companion object {
@@ -66,13 +75,27 @@ class TimerService : Service() {
         when (intent?.action) {
             ACTION_FINISH_SET -> finishSet()
             ACTION_STOP_REST -> stopRest()
-            ACTION_STOP_WORKOUT -> stopWorkout()
+            ACTION_STOP_WORKOUT -> clearWorkout()
         }
         return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent): IBinder {
         return binder
+    }
+
+    fun initWorkout(rowId: Long, name: String, target: Int, type: String, targetSets: Int) {
+        // If a new workout is started for the same ID, just continue
+        if (_targetRowId.value == rowId && _isWorkoutStarted.value) return
+
+        resetWorkout()
+
+        _targetRowId.value = rowId
+        _exerciseName.value = name
+        _workoutType.value = type
+        _totalSets.value = targetSets.coerceAtLeast(1)
+        _setReps.value = List(targetSets) { target }
+        _currentSet.value = 1
     }
 
     fun startWorkout() {
@@ -96,30 +119,47 @@ class TimerService : Service() {
         }
     }
 
-    fun stopWorkout() {
+    fun clearWorkout() {
         totalWorkoutTimeJob?.cancel()
         restTimerJob?.cancel()
         _isResting.value = false
-        _remainingTime.value = 0
+        _remainingRestTime.value = 0
         _totalWorkoutTime.value = 0
         _isWorkoutStarted.value = false
         _currentSet.value = 1
         _setReps.value = List(_totalSets.value) { 10 }
+        _targetRowId.value = null
+        _exerciseName.value = ""
+        _workoutType.value = "reps"
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
-    fun startRest(totalTime: Int) {
-        if (_isResting.value) {
-            return
+    fun resetWorkout() {
+        totalWorkoutTimeJob?.cancel()
+        restTimerJob?.cancel()
+        _isResting.value = false
+        _remainingRestTime.value = 0
+        _totalWorkoutTime.value = 0
+        _isWorkoutStarted.value = false
+        _currentSet.value = 1
+    }
+    fun resetIfMatches(rowId: Long) {
+        if (_targetRowId.value == rowId) {
+            resetWorkout()
         }
-        _remainingTime.value = totalTime
+    }
+
+    fun startRest() {
+        if (_isResting.value) return
+
+        _remainingRestTime.value = _totalRestTime.value
         _isResting.value = true
         updateNotification()
 
         restTimerJob = serviceScope.launch {
-            while (_remainingTime.value > 0) {
+            while (_remainingRestTime.value > 0) {
                 delay(1000)
-                _remainingTime.value--
+                _remainingRestTime.value--
                 updateNotification()
             }
             _isResting.value = false
@@ -130,7 +170,7 @@ class TimerService : Service() {
     fun stopRest() {
         restTimerJob?.cancel()
         _isResting.value = false
-        _remainingTime.value = 0
+        _remainingRestTime.value = 0
         updateNotification()
     }
 
@@ -138,7 +178,7 @@ class TimerService : Service() {
         stopRest()
         if (_currentSet.value < _totalSets.value) {
             _currentSet.value++
-            startRest(_totalTime.value)
+            startRest()
         } else if (_currentSet.value == _totalSets.value) {
             _currentSet.value++
         }
@@ -147,7 +187,7 @@ class TimerService : Service() {
 
      fun setRestTime(seconds: Int) {
         if (!_isResting.value) {
-            _totalTime.value = seconds
+            _totalRestTime.value = seconds
         }
         updateNotification()
     }
@@ -209,7 +249,7 @@ class TimerService : Service() {
             isOngoing = true
             if (_isResting.value) {
                 title = "휴식 중"
-                contentText = "남은 시간: ${formatTime(_remainingTime.value)}"
+                contentText = "남은 시간: ${formatTime(_remainingRestTime.value)}"
                 val stopRestIntent = Intent(this, TimerService::class.java).apply {
                     action = ACTION_STOP_REST
                 }
@@ -218,7 +258,7 @@ class TimerService : Service() {
                 )
                 builder.addAction(R.drawable.ic_launcher_foreground, "건너뛰기", stopRestPendingIntent)
             } else {
-                title = "운동 중"
+                title = "운동 중 - ${_exerciseName.value}"
                 contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 총 시간: ${formatTime(totalWorkoutTime.value)}"
                 val finishSetIntent = Intent(this, TimerService::class.java).apply {
                     action = ACTION_FINISH_SET
