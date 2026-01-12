@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -266,6 +267,8 @@ fun RecordCalendar(
 
 @Composable
 fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
+    val expandedState = remember { mutableStateMapOf<Long, Boolean>() }
+
     Column(
         modifier = Modifier
             .padding(top = 16.dp)
@@ -279,30 +282,53 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             exercises.forEachIndexed { index, exercise ->
-                val amountText = if (exercise.duration != null) {
-                    "${exercise.duration}분"
-                } else {
-                    "${exercise.repsPerSet}회"
-                }
-                val setsText = "${exercise.sets}세트"
+                val isExpanded = expandedState[exercise.rowId] ?: false
 
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .clickable {
+                            expandedState[exercise.rowId] = !isExpanded
+                        }
                 ) {
-                    Text(
-                        text = exercise.name,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 17.sp,
-                    )
-                    Text(
-                        text = "$setsText, $amountText",
-                        fontSize = 15.sp,
-                        color = Color.DarkGray
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = exercise.name,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 17.sp,
+                        )
+
+                        val totalReps = exercise.actualReps
+                        val durationMinutes = exercise.actualDurationSec / 60
+                        val durationSeconds = exercise.actualDurationSec % 60
+
+                        val summaryText = buildString {
+                            if (totalReps > 0) {
+                                append("총 ${totalReps}회")
+                            }
+                            if (durationMinutes > 0 || durationSeconds > 0) {
+                                if (isNotEmpty()) append(", ")
+                                if(durationMinutes > 0) append("${durationMinutes}분 ")
+                                append("${durationSeconds}초")
+                            }
+                        }
+
+                        Text(
+                            text = summaryText,
+                            fontSize = 15.sp,
+                            color = Color.DarkGray
+                        )
+                    }
+
+                    if (isExpanded) {
+                        ExerciseDetailView(exercise)
+                    }
                 }
                 if (index < exercises.size - 1) {
                     Divider(color = Color.LightGray, thickness = 0.5.dp)
@@ -321,6 +347,28 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
         }
     }
 }
+
+@Composable
+fun ExerciseDetailView(exercise: TodayExerciseEntity) {
+    val setReps = exercise.setReps.split(",").mapNotNull { it.trim().toIntOrNull() }
+    val setWeights = exercise.setWeights.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+
+    Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+        setReps.forEachIndexed { setIndex, reps ->
+            val weight = setWeights.getOrNull(setIndex)
+            val setText = "세트 ${setIndex + 1}: ${reps}회"
+            val weightText = weight?.let { " / ${it}kg" } ?: ""
+
+            Text(
+                text = "$setText$weightText",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
+}
+
 
 @Composable
 fun MonthHeader(daysOfWeek: List<CalendarDay>, month: String) {

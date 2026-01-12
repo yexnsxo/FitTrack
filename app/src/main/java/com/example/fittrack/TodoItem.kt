@@ -75,7 +75,8 @@ fun TodayListCard(
     onEditStrength: (TodayExerciseEntity, Int, Int) -> Unit,     // sets, reps
     onEditDuration: (TodayExerciseEntity, Int, Int) -> Unit,      // sets, minutes
     onTimerClick: (TodayExerciseEntity) -> Unit = {},
-    onEditActualTime: (TodayExerciseEntity, Int) -> Unit = { _, _ -> } // ✅ 실제 시간 수정용 콜백
+    onEditActualTime: (TodayExerciseEntity, Int) -> Unit = { _, _ -> }, // ✅ 실제 시간 수정용 콜백
+    onEditSetInfo: (TodayExerciseEntity) -> Unit
 ) {
     Text("오늘의 운동 목록", fontWeight = FontWeight.Bold, fontSize = 20.sp)
     Spacer(Modifier.height(8.dp))
@@ -132,7 +133,8 @@ fun TodayListCard(
                 onEditStrength = { sets, reps -> onEditStrength(item, sets, reps) },
                 onEditDuration = { sets, minutes -> onEditDuration(item, sets, minutes) },
                 onTimerClick = { onTimerClick(item) },
-                onEditActualTime = { totalSec -> onEditActualTime(item, totalSec) }
+                onEditActualTime = { totalSec -> onEditActualTime(item, totalSec) },
+                onEditSetInfo = { onEditSetInfo(item) }
             )
         }
     }
@@ -146,7 +148,8 @@ private fun TodayRow(
     onEditStrength: (sets: Int, reps: Int) -> Unit,
     onEditDuration: (sets: Int, minutes: Int) -> Unit,
     onTimerClick: () -> Unit,
-    onEditActualTime: (Int) -> Unit
+    onEditActualTime: (Int) -> Unit,
+    onEditSetInfo: () -> Unit
 ) {
     val selected = item.isCompleted
     val editOpen = remember { mutableStateOf(false) }
@@ -202,7 +205,7 @@ private fun TodayRow(
 
                         val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration != null
 
-                        TimerPill(    
+                        TimerPill(
                             actualSec = item.actualDurationSec,
                             onClick = { if (selected) editOpen.value = true else onTimerClick() },
                             isTimeBased = isTimeBased
@@ -245,11 +248,11 @@ private fun TodayRow(
                         } else {
                             if (item.actualReps > 0) {
                                 Text(
-                                    text = "수행: ${item.actualReps}회",
+                                    text = "수행: ${item.sets}세트 (${item.actualReps}회)",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF10B981),
-                                    modifier = Modifier.clickable { if (selected) editOpen.value = true }
+                                    modifier = Modifier.clickable { onEditSetInfo() }
                                 )
                             } else {
                                 Text(

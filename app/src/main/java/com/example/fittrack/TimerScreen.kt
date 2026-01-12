@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -41,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -62,6 +64,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fittrack.ui.theme.Main40
@@ -91,13 +94,22 @@ fun TimerScreen(
             item {
                 val rowId by viewModel.targetRowId.collectAsState()
                 val totalTime by viewModel.totalWorkoutTime.collectAsState()
+                val setReps by viewModel.setReps.collectAsState()
+                val setWeights by viewModel.setWeights.collectAsState()
+
                 val onCompleteWorkout: (Boolean) -> Unit = { shouldRecord ->
                     if (shouldRecord) {
                         rowId?.let { id ->
+                            val completedSets = (viewModel.currentSet.value - 1).coerceAtLeast(0)
+                            val repsList = setReps.take(completedSets).map { it.toString() }
+                            val weightsList = setWeights.take(completedSets).map { it.toString() }
+
                             todoViewModel.completeWorkoutFromTimer(
                                 rowId = id,
                                 actualSec = totalTime,
-                                totalReps = viewModel.getTotalReps()
+                                totalReps = viewModel.getTotalReps(),
+                                setReps = repsList,
+                                setWeights = weightsList
                             )
                         }
                         onFinish()
@@ -142,25 +154,31 @@ fun TimerScreen(
             onRestTimeChange = { viewModel.setRestTime(it) },
             onWorkoutTypeChange = { viewModel.setWorkoutType(it) },
             onClearWorkout = { viewModel.clearWorkout() },
-            onDismiss = { }
+            onDismiss = { showSettingsSheet = false }
         )
     }
 
     showEditRepsDialogForSet?.let { set ->
         val setReps by viewModel.setReps.collectAsState()
+        val setWeights by viewModel.setWeights.collectAsState()
         val totalSets by viewModel.totalSets.collectAsState()
         val workoutType by viewModel.workoutType.collectAsState()
         EditRepsDialog(
             setNumber = set,
             initialReps = setReps.getOrNull(set - 1) ?: 0,
+            initialWeight = setWeights.getOrNull(set - 1) ?: 0,
             unit = if (workoutType == "time") "분" else "회",
-            onConfirm = { newReps -> viewModel.setRepsForSet(set, newReps) },
-            onConfirmAll = { newReps ->
+            onConfirm = { newReps, newWeight ->
+                viewModel.setRepsForSet(set, newReps)
+                viewModel.setWeightForSet(set, newWeight)
+            },
+            onConfirmAll = { newReps, newWeight ->
                 for (i in set..totalSets) {
                     viewModel.setRepsForSet(i, newReps)
+                    viewModel.setWeightForSet(i, newWeight)
                 }
             },
-            onDismiss = { }
+            onDismiss = { showEditRepsDialogForSet = null }
         )
     }
 
@@ -170,7 +188,7 @@ fun TimerScreen(
             onConfirm = {
                 viewModel.resetToSet(set)
             },
-            onDismiss = { }
+            onDismiss = { showConfirmUncheckDialogForSet = null }
         )
     }
 }
@@ -456,6 +474,7 @@ fun SetChecklist(
     val totalSets by viewModel.totalSets.collectAsState()
     val currentSet by viewModel.currentSet.collectAsState()
     val setReps by viewModel.setReps.collectAsState()
+    val setWeights by viewModel.setWeights.collectAsState()
     val isWorkoutStarted by viewModel.isWorkoutStarted.collectAsState()
     val workoutType by viewModel.workoutType.collectAsState()
 
@@ -488,6 +507,7 @@ fun SetChecklist(
                     SetItem(
                         index = setNumber - 1,
                         reps = setReps.getOrNull(setNumber - 1) ?: 0,
+                        weight = setWeights.getOrNull(setNumber - 1) ?: 0,
                         unit = if (workoutType == "time") "분" else "회",
                         isCompleted = isCompleted,
                         isCurrent = isCurrent && isWorkoutStarted,
@@ -505,6 +525,7 @@ fun SetChecklist(
 fun SetItem(
     index: Int,
     reps: Int,
+    weight: Int,
     unit: String,
     isCompleted: Boolean,
     isCurrent: Boolean,
@@ -567,16 +588,29 @@ fun SetItem(
             }
         )
 
-        // 3. 중간 여백 (이게 오른쪽으로 밀어주는 핵심입니다)
+        // 3. 중간 여백
         Spacer(modifier = Modifier.weight(1f))
 
-        // 4. 횟수 및 단위 (오른쪽 끝 고정)
-        Text(
-            text = "$reps $unit",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // 4. 무게 및 횟수 정보 (오른쪽 끝)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (weight > 0 && unit == "회") {
+                Text(
+                    text = "${weight}kg",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = "$reps $unit",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -769,43 +803,51 @@ fun NumberPicker(
 fun EditRepsDialog(
     setNumber: Int,
     initialReps: Int,
+    initialWeight: Int,
     unit: String,
-    onConfirm: (Int) -> Unit,
-    onConfirmAll: (Int) -> Unit,
+    onConfirm: (Int, Int) -> Unit,
+    onConfirmAll: (Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     var reps by remember { mutableIntStateOf(initialReps) }
+    var weight by remember { mutableIntStateOf(initialWeight) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (unit == "분") "시간 수정" else "횟수 수정") },
+        title = { Text(if (unit == "분") "시간 수정" else "횟수 및 무게 수정") },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Text("세트 ${setNumber}의 ${if (unit == "분") "운동 시간" else "반복 횟수"}을 조정합니다.", style = MaterialTheme.typography.bodyMedium)
+                Text("세트 ${setNumber}의 ${if (unit == "분") "운동 시간" else "반복 횟수와 무게"}을 조정합니다.", style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(24.dp))
+
+                // Reps/Time picker
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     IconButton(
                         onClick = { reps = (reps - 1).coerceAtLeast(0) },
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                        modifier = Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Icon(Icons.Default.Remove, contentDescription = "-1")
                     }
                     Text("$reps $unit", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Main40)
                     IconButton(
                         onClick = { reps += 1 },
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                        modifier = Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "+1")
                     }
+                }
+
+                if (unit == "회") {
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = weight.toString(),
+                        onValueChange = { weight = it.toIntOrNull() ?: 0 },
+                        label = { Text("무게 (kg)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
                 }
             }
         },
@@ -817,7 +859,7 @@ fun EditRepsDialog(
             ) {
                 Button(
                     onClick = {
-                        onConfirm(reps)
+                        onConfirm(reps, weight)
                         onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -825,7 +867,7 @@ fun EditRepsDialog(
 
                 TextButton(
                     onClick = {
-                        onConfirmAll(reps)
+                        onConfirmAll(reps, weight)
                         onDismiss()
                     }
                 ) { Text("남은 모든 세트에 적용") }

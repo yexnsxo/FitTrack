@@ -55,6 +55,10 @@ class TimerViewModel : ViewModel() {
     private val _setReps = MutableStateFlow<List<Int>>(emptyList())
     val setReps: StateFlow<List<Int>> = _setReps.asStateFlow()
 
+    private val _setWeights = MutableStateFlow<List<Int>>(emptyList())
+    val setWeights: StateFlow<List<Int>> = _setWeights.asStateFlow()
+
+
     // Public functions to control the timer, delegating to the service
     fun initWorkout(rowId: Long, name: String, target: Int, type: String, targetSets: Int) =
         timerService?.initWorkout(rowId, name, target, type, targetSets)
@@ -69,6 +73,7 @@ class TimerViewModel : ViewModel() {
     fun setRestTime(seconds: Int) = timerService?.setRestTime(seconds)
     fun setTotalSets(count: Int) = timerService?.setTotalSets(count)
     fun setRepsForSet(set: Int, reps: Int) = timerService?.setRepsForSet(set, reps)
+    fun setWeightForSet(set: Int, weight: Int) = timerService?.setWeightForSet(set, weight)
     fun setWorkoutType(type: String) = timerService?.setWorkoutType(type)
     fun resetToSet(set: Int) = timerService?.resetToSet(set)
 
@@ -97,6 +102,7 @@ class TimerViewModel : ViewModel() {
                     launch { service.totalSets.collect { _totalSets.value = it } }
                     launch { service.currentSet.collect { _currentSet.value = it } }
                     launch { service.setReps.collect { _setReps.value = it } }
+                    launch { service.setWeights.collect { _setWeights.value = it } }
                 }
             }
         }

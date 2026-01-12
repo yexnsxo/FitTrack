@@ -28,11 +28,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -50,11 +52,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import com.example.fittrack.data.Exercise
+import com.example.fittrack.data.TodayExerciseEntity
 import com.example.fittrack.ui.theme.Main40
 import java.io.File
 import java.text.SimpleDateFormat
@@ -64,7 +68,7 @@ import java.util.Locale
 @Composable
 fun TodoScreen(
     vm: TodoViewModel,
-    timerViewModel: TimerViewModel, 
+    timerViewModel: TimerViewModel,
     recordViewModel: RecordViewModel,
     navController: NavController
 ) {
@@ -116,6 +120,8 @@ fun TodoScreen(
 
     val pendingAddState = remember { mutableStateOf<Exercise?>(null) }
     val showDirectAddState = remember { mutableStateOf(false) }
+    val pendingEditSet = remember { mutableStateOf<TodayExerciseEntity?>(null) }
+
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -135,7 +141,7 @@ fun TodoScreen(
             item {
                 TodayListCard(
                     items = todayList,
-                    onToggle = { item, checked -> 
+                    onToggle = { item, checked ->
                         vm.toggleCompleted(item.rowId, checked)
                         if (!checked) {
                             timerViewModel.resetIfMatches(item.rowId)
@@ -156,7 +162,8 @@ fun TodoScreen(
                     },
                     onEditActualTime = { item, totalSec ->
                         vm.updateActualTime(item.rowId, totalSec) // ✅ 콜백 연결 재확인
-                    }
+                    },
+                    onEditSetInfo = { item -> pendingEditSet.value = item }
                 )
             }
 
@@ -259,6 +266,17 @@ fun TodoScreen(
                 onConfirm = { newExercise ->
                     vm.addCustomExerciseToCatalog(newExercise)
                     showDirectAddState.value = false
+                }
+            )
+        }
+
+        pendingEditSet.value?.let { item ->
+            EditSetInfoDialog(
+                item = item,
+                onDismiss = { pendingEditSet.value = null },
+                onConfirm = { reps, weights ->
+                    vm.updateSetInfo(item.rowId, reps, weights)
+                    pendingEditSet.value = null
                 }
             )
         }
@@ -580,5 +598,80 @@ fun createImageFile(context: Context): File {
         "JPEG_${timeStamp}_",
         ".jpg",
         storageDir
+    )
+}
+
+@Composable
+fun EditSetInfoDialog(
+    item: TodayExerciseEntity,
+    onDismiss: () -> Unit,
+    onConfirm: (reps: List<String>, weights: List<String>) -> Unit
+) {
+    val currentReps = remember {
+        item.setReps.split(",").map { it.trim() }.toMutableList()
+    }
+    val currentWeights = remember {
+        item.setWeights.split(",").map { it.trim() }.toMutableList()
+    }
+
+    val repsState = remember {
+        mutableStateOf(List(item.sets) { i ->
+            currentReps.getOrElse(i) { item.repsPerSet?.toString() ?: "" }
+        })
+    }
+    val weightsState = remember {
+        mutableStateOf(List(item.sets) { i ->
+            currentWeights.getOrElse(i) { "" }
+        })
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("${item.name} - 세트 정보 수정") },
+        text = {
+            LazyColumn {
+                items(item.sets) { i ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("Set ${i + 1}", modifier = Modifier.width(50.dp))
+                        OutlinedTextField(
+                            value = repsState.value[i],
+                            onValueChange = { newValue ->
+                                val newList = repsState.value.toMutableList()
+                                newList[i] = newValue
+                                repsState.value = newList
+                            },
+                            label = { Text("횟수") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = weightsState.value[i],
+                            onValueChange = { newValue ->
+                                val newList = weightsState.value.toMutableList()
+                                newList[i] = newValue
+                                weightsState.value = newList
+                            },
+                            label = { Text("무게(kg)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(repsState.value, weightsState.value) }) {
+                Text("확인")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
     )
 }

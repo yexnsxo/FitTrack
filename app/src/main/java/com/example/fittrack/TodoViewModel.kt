@@ -27,7 +27,7 @@ data class ProgressUi(
     val completedCount: Int = 0,
     val totalCount: Int = 0,
     val caloriesSum: Int = 0,
-    val totalDurationSec: Int = 0 
+    val totalDurationSec: Int = 0
 )
 
 class TodoViewModel(
@@ -142,11 +142,17 @@ class TodoViewModel(
         }.coerceAtLeast(0)
     }
 
-    fun completeWorkoutFromTimer(rowId: Long, actualSec: Int, totalReps: Int) {
+    fun completeWorkoutFromTimer(
+        rowId: Long,
+        actualSec: Int,
+        totalReps: Int,
+        setReps: List<String>,
+        setWeights: List<String>
+    ) {
         viewModelScope.launch {
             val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
             val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
-            
+
             val updatedCalories = if (baseExercise != null) {
                 if (item.repsPerSet != null) {
                     (baseExercise.calories * (totalReps / 10.0)).roundToInt()
@@ -158,7 +164,14 @@ class TodoViewModel(
                 item.calories
             }
 
-            repo.completeRecord(rowId, actualSec, totalReps, updatedCalories)
+            repo.completeRecord(
+                rowId = rowId,
+                actualSec = actualSec,
+                actualReps = totalReps,
+                calories = updatedCalories,
+                setReps = setReps.joinToString(","),
+                setWeights = setWeights.joinToString(",")
+            )
         }
     }
 
@@ -167,11 +180,11 @@ class TodoViewModel(
         viewModelScope.launch {
             val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
             val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
-            
+
             val updatedCalories = if (baseExercise != null) {
                 if (item.repsPerSet != null) {
                     // 근력 운동: 시간 수정 시에도 기존 수행 횟수 기준으로 칼로리 유지 (또는 필요 시 수정 가능)
-                    item.calories 
+                    item.calories
                 } else {
                     // 시간 기반 운동: 수정된 실제 분(min)에 맞춰 칼로리 재계산
                     val actualMin = totalSec / 60.0
@@ -183,7 +196,7 @@ class TodoViewModel(
             }
 
             // DB 업데이트 (기존 completeRecord 재사용하여 실제 시간과 갱신된 칼로리 저장)
-            repo.completeRecord(rowId, totalSec, item.actualReps, updatedCalories)
+            repo.completeRecord(rowId, totalSec, item.actualReps, updatedCalories, item.setReps, item.setWeights)
         }
     }
 
@@ -192,18 +205,29 @@ class TodoViewModel(
             val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
             if (checked) {
                 val targetReps = if (item.repsPerSet != null) {
-                    item.sets * item.repsPerSet 
+                    item.sets * (item.repsPerSet ?: 0)
                 } else {
-                    item.sets * (item.duration ?: 0)
+                    0
                 }
 
                 val estimatedSec = if (item.duration != null) {
-                    (item.sets * item.duration * 60)
+                    item.sets * (item.duration ?: 0) * 60
                 } else {
-                    (item.sets * 60)
+                    0
                 }
-                
-                repo.completeRecord(rowId, estimatedSec, targetReps, item.calories)
+
+                val setRepsString = if (item.repsPerSet != null) {
+                    List(item.sets) { item.repsPerSet.toString() }.joinToString(",")
+                } else {
+                    ""
+                }
+                val setWeightsString = if (item.repsPerSet != null) {
+                    List(item.sets) { "" }.joinToString(",")
+                } else {
+                    ""
+                }
+
+                repo.completeRecord(rowId, estimatedSec, targetReps, item.calories, setRepsString, setWeightsString)
             } else {
                 val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
                 val initialCalories = if (baseExercise != null) {
@@ -235,6 +259,15 @@ class TodoViewModel(
             repo.updateTodayAmounts(item.rowId, sets, null, minutes, kcal)
         }
     }
+
+    fun updateSetInfo(rowId: Long, reps: List<String>, weights: List<String>) {
+        viewModelScope.launch {
+            val repsString = reps.joinToString(",")
+            val weightsString = weights.joinToString(",")
+            val totalReps = reps.sumOf { it.toIntOrNull() ?: 0 }
+            repo.updateSetInfo(rowId, repsString, weightsString, totalReps)
+        }
+    }
 }
 
 class TodoViewModelFactory(
@@ -244,14 +277,14 @@ class TodoViewModelFactory(
         val db = FitTrackDatabase.getInstance(appContext)
         val photoDb = PhotoDatabase.getDatabase(appContext)
         val photoRepo = PhotoRepository(photoDb.photoDao())
-        
+
         val repo = TodoRepository(
             appContext,
             db.todayExerciseDao(),
             db.customExerciseDao(),
             photoRepo
         )
-        
+
         @Suppress("UNCHECKED_CAST")
         return TodoViewModel(repo, photoDb.photoDao()) as T
     }
