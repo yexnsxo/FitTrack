@@ -212,7 +212,8 @@ private fun TodayRow(
                     ) {
                         // ✅ 실제 수행 기록이 있으면 표시
                         if (item.actualReps > 0) {
-                            Text(text = "수행: ${item.actualReps}회", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                            val unit = if (item.duration != null) "분" else "회"
+                            Text(text = "수행: ${item.actualReps}$unit", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                         } else {
                             if (item.repsPerSet != null) {
                                 Text(text = "${item.sets}세트 ${item.repsPerSet}회", fontSize = 15.sp)
@@ -306,7 +307,14 @@ private fun TimerPill(
                 Spacer(Modifier.width(4.dp))
                 val mins = actualSec / 60
                 val secs = actualSec % 60
-                val timeText = if (mins > 0) "${mins}분 ${secs}초" else "${secs}초"
+                
+                // ✅ 초가 0일 때는 생략하도록 로직 수정
+                val timeText = if (mins > 0) {
+                    if (secs > 0) "${mins}분 ${secs}초" else "${mins}분"
+                } else {
+                    "${secs}초"
+                }
+                
                 Text(
                     text = timeText,
                     fontSize = 14.sp,
