@@ -1,5 +1,9 @@
 package com.example.fittrack
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -114,6 +118,16 @@ fun RepsModeScreen(
     onCompleteWorkout: () -> Unit
 ) {
     val isWorkoutStarted by viewModel.isWorkoutStarted.collectAsState()
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                viewModel.startWorkout()
+            } else {
+                // 사용자가 권한을 거부했을 때의 처리, 예를 들어 스낵바 표시 등
+            }
+        }
+    )
     val exerciseName by viewModel.exerciseName.collectAsState()
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -130,7 +144,13 @@ fun RepsModeScreen(
             StatsCards(viewModel)
         } else {
             Button(
-                onClick = { viewModel.startWorkout() },
+                onClick = { 
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        viewModel.startWorkout()
+                    }
+                 },
                 modifier = Modifier.fillMaxWidth().height(60.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Main40)

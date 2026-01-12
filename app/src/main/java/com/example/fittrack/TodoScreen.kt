@@ -53,7 +53,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.fittrack.data.Exercise
 import com.example.fittrack.ui.theme.Main40
@@ -65,9 +64,9 @@ import java.util.Locale
 @Composable
 fun TodoScreen(
     vm: TodoViewModel,
-    timerViewModel: TimerViewModel, // ✅ 파라미터 추가
+    timerViewModel: TimerViewModel, 
     recordViewModel: RecordViewModel,
-    navController: NavController,
+    navController: NavController
 ) {
     val progress by vm.progress.collectAsState()
     val selected by vm.selectedCategory.collectAsState()
@@ -138,7 +137,6 @@ fun TodoScreen(
                     items = todayList,
                     onToggle = { item, checked -> 
                         vm.toggleCompleted(item.rowId, checked)
-                        // ✅ 체크 해제 시 타이머 초기화 연동
                         if (!checked) {
                             timerViewModel.resetIfMatches(item.rowId)
                         }
