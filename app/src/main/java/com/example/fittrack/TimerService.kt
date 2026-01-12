@@ -281,7 +281,7 @@ class TimerService : Service() {
         )
 
         val isFinished = currentSet.value > totalSets.value
-        val title: String
+        var title: String
         val contentText: String
         val isOngoing: Boolean
 
@@ -306,8 +306,13 @@ class TimerService : Service() {
                 )
                 builder.addAction(R.drawable.ic_launcher_foreground, "건너뛰기", stopRestPendingIntent)
             } else {
-                title = "운동 중 - ${_exerciseName.value}"
-                contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 총 시간: ${formatTime(totalWorkoutTime.value)}"
+                title = if (exerciseName.value.isNotEmpty()) "운동 중 - ${exerciseName.value}" else "운동 중"
+                if (workoutType.value == "time") {
+                    contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 남은 시간: ${formatTime(remainingSetTime.value)}"
+                } else {
+                    contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 총 시간: ${formatTime(totalWorkoutTime.value)}"
+                }
+
                 val finishSetIntent = Intent(this, TimerService::class.java).apply {
                     action = ACTION_FINISH_SET
                 }
