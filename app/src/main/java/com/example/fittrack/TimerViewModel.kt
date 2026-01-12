@@ -17,7 +17,7 @@ class TimerViewModel : ViewModel() {
     private val _exerciseName = MutableStateFlow("")
     val exerciseName: StateFlow<String> = _exerciseName.asStateFlow()
 
-    private val _workoutType = MutableStateFlow("reps") // "reps" or "time"
+    private val _workoutType = MutableStateFlow("reps")
     val workoutType: StateFlow<String> = _workoutType.asStateFlow()
 
     private val _isWorkoutStarted = MutableStateFlow(false)
@@ -48,14 +48,13 @@ class TimerViewModel : ViewModel() {
     val setReps: StateFlow<List<Int>> = _setReps.asStateFlow()
 
     fun initWorkout(rowId: Long, name: String, target: Int, type: String, targetSets: Int) {
+        // ✅ 이미 같은 운동이 시작된 상태라면 초기화하지 않고 유지
+        if (_targetRowId.value == rowId && _isWorkoutStarted.value) return
+
         _targetRowId.value = rowId
         _exerciseName.value = name
         _workoutType.value = type
-        
-        // 투두에서 설정한 세트 수 적용
         _totalSets.value = if (targetSets > 0) targetSets else 5
-        
-        // 시간 기반이든 횟수 기반이든 target 값을 초기값으로 설정
         _setReps.value = List(_totalSets.value) { target }
         
         resetWorkout()
@@ -135,6 +134,20 @@ class TimerViewModel : ViewModel() {
         _totalWorkoutTime.value = 0
         _remainingRestTime.value = _totalRestTime.value
         _currentSet.value = 1
+    }
+
+    // ✅ 완전히 초기화 (운동 종료 시 또는 Todo 체크 해제 시 호출)
+    fun clearWorkout() {
+        resetWorkout()
+        _targetRowId.value = null
+        _exerciseName.value = ""
+        _setReps.value = emptyList()
+    }
+
+    fun resetIfMatches(rowId: Long) {
+        if (_targetRowId.value == rowId) {
+            clearWorkout()
+        }
     }
 
     fun setRepsForSet(set: Int, reps: Int) {

@@ -16,19 +16,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fittrack.ui.theme.Main40
-import kotlinx.coroutines.delay
 
 @Composable
 fun TimerScreen(
     viewModel: TimerViewModel,
-    todoViewModel: TodoViewModel = viewModel(factory = TodoViewModelFactory(LocalContext.current.applicationContext)),
-    onFinish: () -> Unit = {} // 완료 후 화면 이동을 위한 콜백
+    todoViewModel: TodoViewModel, // ✅ 외부에서 주입받도록 수정
+    onFinish: () -> Unit = {}
 ) {
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showEditRepsDialogForSet by remember { mutableStateOf<Int?>(null) }
@@ -52,7 +49,6 @@ fun TimerScreen(
                     onUncheckSetClick = { set -> showConfirmUncheckDialogForSet = set },
                     onSettingsClick = { showSettingsDialog = true },
                     onCompleteWorkout = {
-                        // ✅ 운동 완료 시 TodoViewModel에 기록 저장
                         rowId?.let { id ->
                             todoViewModel.completeWorkoutFromTimer(
                                 rowId = id,
@@ -60,14 +56,13 @@ fun TimerScreen(
                                 totalReps = viewModel.getTotalReps()
                             )
                         }
-                        onFinish() // Todo 화면으로 돌아가기
+                        onFinish()
                     }
                 )
             }
         }
     }
 
-    // ... 다이얼로그 로직들 (기존과 동일)
     if (showSettingsDialog) {
         val totalSets by viewModel.totalSets.collectAsState()
         val restTime by viewModel.totalRestTime.collectAsState()
@@ -116,13 +111,12 @@ fun RepsModeScreen(
     onEditRepsClick: (Int) -> Unit,
     onUncheckSetClick: (Int) -> Unit,
     onSettingsClick: () -> Unit,
-    onCompleteWorkout: () -> Unit // ✅ 추가
+    onCompleteWorkout: () -> Unit
 ) {
     val isWorkoutStarted by viewModel.isWorkoutStarted.collectAsState()
     val exerciseName by viewModel.exerciseName.collectAsState()
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // 운동 이름 표시
         if (exerciseName.isNotEmpty()) {
             Text(
                 text = exerciseName,
@@ -171,7 +165,6 @@ fun RepsModeScreen(
                 Text("세트 완료", style = MaterialTheme.typography.titleLarge)
             }
 
-            // ✅ "운동 완료" 버튼 클릭 시 onCompleteWorkout 호출
             Button(
                 onClick = onCompleteWorkout,
                 modifier = Modifier.fillMaxWidth().height(60.dp),
