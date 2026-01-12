@@ -20,23 +20,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.fittrack.ui.theme.Main40
-import kotlinx.coroutines.delay
 
 @Composable
 fun TimerScreen(viewModel: TimerViewModel) {
-
-    val context = LocalContext.current
-    DisposableEffect(Unit) {
-        viewModel.bindService(context)
-        onDispose {
-            viewModel.unbindService(context)
-        }
-    }
 
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showEditRepsDialogForSet by remember { mutableStateOf<Int?>(null) }

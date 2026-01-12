@@ -14,26 +14,46 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class TimerService : Service() {
 
     private val binder = TimerBinder()
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var restTimerJob: Job? = null
-    private var notificationUpdateJob: Job? = null
-    private var viewModel: TimerViewModel? = null
+    private var totalWorkoutTimeJob: Job? = null
+
+    // Service-managed state
+    private val _isWorkoutStarted = MutableStateFlow(false)
+    val isWorkoutStarted = _isWorkoutStarted.asStateFlow()
+
+    private val _totalTime = MutableStateFlow(60)
+    val totalTime = _totalTime.asStateFlow()
+
+    private val _totalWorkoutTime = MutableStateFlow(0)
+    val totalWorkoutTime = _totalWorkoutTime.asStateFlow()
+
+    private val _totalSets = MutableStateFlow(5)
+    val totalSets = _totalSets.asStateFlow()
+
+    private val _currentSet = MutableStateFlow(1)
+    val currentSet = _currentSet.asStateFlow()
+
+    private val _setReps = MutableStateFlow(List(_totalSets.value) { 10 })
+    val setReps = _setReps.asStateFlow()
 
     private val _remainingTime = MutableStateFlow(0)
-    val remainingTime: StateFlow<Int> get() = _remainingTime
+    val remainingTime = _remainingTime.asStateFlow()
 
     private val _isResting = MutableStateFlow(false)
-    val isResting: StateFlow<Boolean> get() = _isResting
+    val isResting = _isResting.asStateFlow()
+
 
     companion object {
         const val CHANNEL_ID = "TimerServiceChannel"
         const val NOTIFICATION_ID = 1
         const val ACTION_FINISH_SET = "com.example.fittrack.ACTION_FINISH_SET"
+        const val ACTION_STOP_REST = "com.example.fittrack.ACTION_STOP_REST"
     }
 
     override fun onCreate() {
@@ -42,8 +62,9 @@ class TimerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_FINISH_SET) {
-            viewModel?.finishSet()
+        when (intent?.action) {
+            ACTION_FINISH_SET -> finishSet()
+            ACTION_STOP_REST -> stopRest()
         }
         return START_NOT_STICKY
     }
@@ -53,6 +74,9 @@ class TimerService : Service() {
     }
 
     fun startWorkout() {
+        if (_isWorkoutStarted.value) return
+        _isWorkoutStarted.value = true
+
         val notification = createNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -60,19 +84,25 @@ class TimerService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        notificationUpdateJob?.cancel()
-        notificationUpdateJob = serviceScope.launch {
-            viewModel?.totalWorkoutTime?.collect {
+        totalWorkoutTimeJob?.cancel()
+        totalWorkoutTimeJob = serviceScope.launch {
+            while (true) {
+                delay(1000)
+                _totalWorkoutTime.value++
                 updateNotification()
             }
         }
     }
 
     fun stopWorkout() {
-        notificationUpdateJob?.cancel()
+        totalWorkoutTimeJob?.cancel()
         restTimerJob?.cancel()
         _isResting.value = false
         _remainingTime.value = 0
+        _totalWorkoutTime.value = 0
+        _isWorkoutStarted.value = false
+        _currentSet.value = 1
+        _setReps.value = List(_totalSets.value) { 10 }
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
@@ -102,34 +132,103 @@ class TimerService : Service() {
         updateNotification()
     }
 
+    fun finishSet() {
+        stopRest()
+        if (_currentSet.value < _totalSets.value) {
+            _currentSet.value++
+            startRest(_totalTime.value)
+        } else if (_currentSet.value == _totalSets.value) {
+            _currentSet.value++
+            totalWorkoutTimeJob?.cancel()
+        }
+        updateNotification()
+    }
+
+     fun setRestTime(seconds: Int) {
+        if (!_isResting.value) {
+            _totalTime.value = seconds
+        }
+    }
+
+    fun setTotalSets(count: Int) {
+        if (count > 0) {
+            _totalSets.value = count
+            val currentReps = _setReps.value
+            _setReps.value = List(count) { index -> currentReps.getOrNull(index) ?: 10 }
+            if (_currentSet.value > count) {
+                _currentSet.value = count
+            }
+        }
+    }
+
+    fun setRepsForSet(set: Int, reps: Int) {
+        if (set > 0 && set <= _setReps.value.size) {
+            val updatedReps = _setReps.value.toMutableList()
+            updatedReps[set - 1] = reps
+            _setReps.value = updatedReps
+        }
+    }
+
+    fun resetToSet(set: Int) {
+        if (set > 0 && set <= _totalSets.value) {
+            stopRest()
+            _currentSet.value = set
+            _isWorkoutStarted.value = true
+        } else if (set > _totalSets.value) {
+            _currentSet.value = _totalSets.value + 1
+        }
+    }
+
+
     private fun createNotification(): Notification {
         val finishSetIntent = Intent(this, TimerService::class.java).apply {
             action = ACTION_FINISH_SET
         }
         val finishSetPendingIntent = PendingIntent.getService(this, 0, finishSetIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
+        val stopRestIntent = Intent(this, TimerService::class.java).apply {
+            action = ACTION_STOP_REST
+        }
+        val stopRestPendingIntent = PendingIntent.getService(this, 1, stopRestIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+
+        val notificationIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("destination", "timer")
+        }
+        val activityPendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            notificationIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val title: String
         val contentText: String
-
-        val totalWorkoutTime = viewModel?.totalWorkoutTime?.value ?: 0
 
         if (_isResting.value) {
             title = "휴식 중"
             contentText = "남은 시간: ${formatTime(_remainingTime.value)}"
         } else {
-            val currentSet = viewModel?.currentSet?.value ?: 1
-            val totalSets = viewModel?.totalSets?.value ?: 1
             title = "운동 중"
-            contentText = "현재 ${currentSet}세트 / 총 ${totalSets}세트 | 총 시간: ${formatTime(totalWorkoutTime)}"
+            contentText = "현재 ${currentSet.value}세트 / 총 ${totalSets.value}세트 | 총 시간: ${formatTime(totalWorkoutTime.value)}"
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .addAction(R.drawable.ic_launcher_foreground, "세트 완료", finishSetPendingIntent)
             .setOngoing(true)
-            .build()
+            .setAutoCancel(false)
+            .setContentIntent(activityPendingIntent)
+
+        if (_isResting.value) {
+             builder.addAction(R.drawable.ic_launcher_foreground, "건너뛰기", stopRestPendingIntent)
+        } else {
+             builder.addAction(R.drawable.ic_launcher_foreground, "세트 완료", finishSetPendingIntent)
+        }
+
+        return builder.build()
     }
 
     private fun updateNotification() {
@@ -157,9 +256,6 @@ class TimerService : Service() {
 
     inner class TimerBinder : Binder() {
         fun getService(): TimerService = this@TimerService
-        fun setViewModel(viewModel: TimerViewModel) {
-            this@TimerService.viewModel = viewModel
-        }
     }
 
     override fun onDestroy() {
