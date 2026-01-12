@@ -205,18 +205,29 @@ class TodoViewModel(
             val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
             if (checked) {
                 val targetReps = if (item.repsPerSet != null) {
-                    item.sets * item.repsPerSet
+                    item.sets * (item.repsPerSet ?: 0)
                 } else {
                     0
                 }
 
                 val estimatedSec = if (item.duration != null) {
-                    (item.sets * item.duration * 60)
+                    item.sets * (item.duration ?: 0) * 60
                 } else {
                     0
                 }
 
-                repo.completeRecord(rowId, estimatedSec, targetReps, item.calories, "", "")
+                val setRepsString = if (item.repsPerSet != null) {
+                    List(item.sets) { item.repsPerSet.toString() }.joinToString(",")
+                } else {
+                    ""
+                }
+                val setWeightsString = if (item.repsPerSet != null) {
+                    List(item.sets) { "" }.joinToString(",")
+                } else {
+                    ""
+                }
+
+                repo.completeRecord(rowId, estimatedSec, targetReps, item.calories, setRepsString, setWeightsString)
             } else {
                 val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
                 val initialCalories = if (baseExercise != null) {

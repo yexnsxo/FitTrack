@@ -474,6 +474,7 @@ fun SetChecklist(
     val totalSets by viewModel.totalSets.collectAsState()
     val currentSet by viewModel.currentSet.collectAsState()
     val setReps by viewModel.setReps.collectAsState()
+    val setWeights by viewModel.setWeights.collectAsState()
     val isWorkoutStarted by viewModel.isWorkoutStarted.collectAsState()
     val workoutType by viewModel.workoutType.collectAsState()
 
@@ -506,6 +507,7 @@ fun SetChecklist(
                     SetItem(
                         index = setNumber - 1,
                         reps = setReps.getOrNull(setNumber - 1) ?: 0,
+                        weight = setWeights.getOrNull(setNumber - 1) ?: 0,
                         unit = if (workoutType == "time") "분" else "회",
                         isCompleted = isCompleted,
                         isCurrent = isCurrent && isWorkoutStarted,
@@ -523,6 +525,7 @@ fun SetChecklist(
 fun SetItem(
     index: Int,
     reps: Int,
+    weight: Int,
     unit: String,
     isCompleted: Boolean,
     isCurrent: Boolean,
@@ -585,16 +588,29 @@ fun SetItem(
             }
         )
 
-        // 3. 중간 여백 (이게 오른쪽으로 밀어주는 핵심입니다)
+        // 3. 중간 여백
         Spacer(modifier = Modifier.weight(1f))
 
-        // 4. 횟수 및 단위 (오른쪽 끝 고정)
-        Text(
-            text = "$reps $unit",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // 4. 무게 및 횟수 정보 (오른쪽 끝)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (weight > 0 && unit == "회") {
+                Text(
+                    text = "${weight}kg",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = "$reps $unit",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
