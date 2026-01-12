@@ -40,10 +40,14 @@ data class TodayExerciseEntity(
     val name: String,
     val category: String,
 
-    // 사용자가 선택한 값
+    // 사용자가 선택한 목표 값
     val sets: Int = 1,
     val repsPerSet: Int? = null,
-    val duration: Int? = null,
+    val duration: Int? = null, // 목표 시간(분)
+
+    // 실제 수행 결과 필드
+    val actualDurationSec: Int = 0, // 실제 운동 시간(초)
+    val actualReps: Int = 0,        // 실제 수행 횟수
 
     val calories: Int,
     val difficulty: String,
@@ -69,6 +73,22 @@ interface TodayExerciseDao {
     @Query("UPDATE today_exercises SET isCompleted = :completed WHERE rowId = :rowId")
     suspend fun updateCompleted(rowId: Long, completed: Boolean)
 
+    // ✅ 타이머 완료 후 실제 기록 업데이트용
+    @Query("""
+        UPDATE today_exercises 
+        SET actualDurationSec = :actualSec, actualReps = :actualReps, calories = :calories, isCompleted = 1 
+        WHERE rowId = :rowId
+    """)
+    suspend fun completeExerciseRecord(rowId: Long, actualSec: Int, actualReps: Int, calories: Int)
+
+    // ✅ 체크 해제 시 기록 초기화용 (추가)
+    @Query("""
+        UPDATE today_exercises 
+        SET actualDurationSec = 0, actualReps = 0, isCompleted = 0, calories = :calories 
+        WHERE rowId = :rowId
+    """)
+    suspend fun resetExerciseRecord(rowId: Long, calories: Int)
+
     @Query("DELETE FROM today_exercises WHERE rowId = :rowId")
     suspend fun deleteById(rowId: Long)
 
@@ -78,7 +98,6 @@ interface TodayExerciseDao {
     @Query("UPDATE today_exercises SET sets = :sets, repsPerSet = :repsPerSet, duration = :duration, calories = :calories WHERE rowId = :rowId")
     suspend fun updateAmounts(rowId: Long, sets: Int?, repsPerSet: Int?, duration: Int?, calories: Int)
 
-    // ✅ 커스텀 운동 정보 수정 시 투두 항목들도 동기화하기 위한 쿼리
     @Query("""
         UPDATE today_exercises 
         SET name = :name, category = :category, difficulty = :difficulty, description = :description 
@@ -90,7 +109,7 @@ interface TodayExerciseDao {
 // 4) Database
 @Database(
     entities = [TodayExerciseEntity::class, CustomExerciseData::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class FitTrackDatabase : RoomDatabase() {
@@ -155,7 +174,6 @@ class TodoRepository(
                 duration = ex.duration
             )
         )
-        // ✅ 마스터 정보 업데이트 시 오늘(혹은 과거)의 운동 내역들도 동기화
         dao.syncExerciseInfo(
             exerciseId = ex.id,
             name = ex.name,
@@ -182,6 +200,15 @@ class TodoRepository(
     }
 
     fun observeToday(dateKey: String) = dao.observeToday(dateKey)
+
+    suspend fun completeRecord(rowId: Long, actualSec: Int, actualReps: Int, calories: Int) {
+        dao.completeExerciseRecord(rowId, actualSec, actualReps, calories)
+    }
+
+    // ✅ 체크 해제 시 초기화 메서드 추가
+    suspend fun resetRecord(rowId: Long, calories: Int) {
+        dao.resetExerciseRecord(rowId, calories)
+    }
 
     suspend fun cleanupNotToday(todayKey: String) = withContext(Dispatchers.IO) {
         val dates = dao.getAllExerciseDates().first()
