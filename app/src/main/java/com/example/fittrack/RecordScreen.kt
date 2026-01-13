@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,10 +21,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -54,33 +56,59 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun RecordScreen(modifier: Modifier = Modifier, viewModel: RecordViewModel) {
+fun RecordScreen(
+    modifier: Modifier = Modifier,
+    innerPadding: PaddingValues = PaddingValues(0.dp), // innerPadding 파라미터 추가
+    viewModel: RecordViewModel
+) {
     val showCalendar by viewModel.showCalendar.collectAsState()
 
-    Scaffold(
-        containerColor = Color(0xFFF1F3F5)
-    ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues)) {
-            TabRow(
-                selectedTabIndex = if (showCalendar) 0 else 1,
-                containerColor = Color.White
-            ) {
-                Tab(
-                    selected = showCalendar,
-                    onClick = { viewModel.setShowCalendar(true) },
-                    text = { Text("달력") },
-                    selectedContentColor = Main40,
-                    unselectedContentColor = Color.Gray
-                )
-                Tab(
-                    selected = !showCalendar,
-                    onClick = { viewModel.setShowCalendar(false) },
-                    text = { Text("전체 사진") },
-                    selectedContentColor = Main40,
-                    unselectedContentColor = Color.Gray
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+            .background(Color(0xffF5F5F5))
+    ) {
+        TabRow(
+            selectedTabIndex = if (showCalendar) 0 else 1,
+            containerColor = Color.White,
+            indicator = { tabPositions ->
+                TabRowDefaults.SecondaryIndicator(
+                    Modifier.tabIndicatorOffset(tabPositions[if (showCalendar) 0 else 1]),
+                    color = Main40
                 )
             }
+        ) {
+            Tab(
+                selected = showCalendar,
+                onClick = { viewModel.setShowCalendar(true) },
+                text = {
+                    Text(
+                        text = "달력",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 20.sp
+                    )
+                },
+                selectedContentColor = Main40,
+                unselectedContentColor = Color.Gray
+            )
+            Tab(
+                selected = !showCalendar,
+                onClick = { viewModel.setShowCalendar(false) },
+                text = {
+                    Text(
+                        text = "전체 사진",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 20.sp
+                    )
+                },
+                selectedContentColor = Main40,
+                unselectedContentColor = Color.Gray
+            )
+        }
 
+        // 컨텐츠 영역에 weight(1f)를 주어 남은 공간만 정확히 차지하게 함
+        Box(modifier = Modifier.weight(1f)) {
             if (showCalendar) {
                 CalendarView(viewModel = viewModel)
             } else {
@@ -98,9 +126,8 @@ fun CalendarView(viewModel: RecordViewModel) {
     val exercises by viewModel.exercisesForSelectedDate.collectAsState()
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp), // Modifier.padding 대신 contentPadding 사용
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
@@ -188,9 +215,8 @@ fun AllPhotosView(viewModel: RecordViewModel) {
     } else {
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp), // contentPadding으로 변경
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -331,7 +357,7 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
                     }
                 }
                 if (index < exercises.size - 1) {
-                    Divider(color = Color.LightGray, thickness = 0.5.dp)
+                    HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
                 }
             }
         } else {

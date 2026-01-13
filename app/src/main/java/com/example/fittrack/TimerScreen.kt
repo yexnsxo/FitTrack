@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,7 +44,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
@@ -76,6 +76,7 @@ import kotlinx.coroutines.launch
 fun TimerScreen(
     todoViewModel: TodoViewModel,
     onFinish: () -> Unit = {},
+    innerPadding: PaddingValues = PaddingValues(0.dp),
     viewModel: TimerViewModel = viewModel(),
 ) {
     var showSettingsSheet by remember { mutableStateOf(false) }
@@ -83,12 +84,21 @@ fun TimerScreen(
     var showConfirmUncheckDialogForSet by remember { mutableStateOf<Int?>(null) }
     val workoutType by viewModel.workoutType.collectAsState()
 
-    Scaffold { padding ->
+    // RecordScreen과 동일하게 배경색을 채우고 내부 패딩 적용
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xffF5F5F5)) // TodoScreen 배경색과 통일
+    ) {
+        // LazyColumn이 남은 공간을 차지하도록 weight(1f) 적용
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(
+                start = 16.dp, 
+                end = 16.dp, 
+                top = 16.dp, 
+                bottom = 32.dp // 하단 여백 충분히 확보
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -117,6 +127,7 @@ fun TimerScreen(
                         viewModel.clearWorkout()
                     }
                 }
+                
                 if (workoutType == "time") {
                     TimeModeScreen(
                         viewModel = viewModel,
@@ -134,7 +145,6 @@ fun TimerScreen(
                         onCompleteWorkout = onCompleteWorkout
                     )
                 }
-
             }
         }
     }
@@ -207,8 +217,6 @@ fun TimeModeScreen(
         onResult = { isGranted ->
             if (isGranted) {
                 viewModel.startWorkout()
-            } else {
-                // Handle permission denial
             }
         }
     )
@@ -298,7 +306,6 @@ fun TimeModeScreen(
 fun CircularTimer(time: Int, totalTime: Int) {
     val progress = if (totalTime > 0) time.toFloat() / totalTime else 0f
 
-
     Box(contentAlignment = Alignment.Center, modifier = Modifier
         .fillMaxWidth()
         .padding(vertical = 24.dp)) {
@@ -322,7 +329,6 @@ fun CircularTimer(time: Int, totalTime: Int) {
     }
 }
 
-
 @Composable
 fun RepsModeScreen(
     viewModel: TimerViewModel,
@@ -337,8 +343,6 @@ fun RepsModeScreen(
         onResult = { isGranted ->
             if (isGranted) {
                 viewModel.startWorkout()
-            } else {
-                // 사용자가 권한을 거부했을 때의 처리, 예를 들어 스낵바 표시 등
             }
         }
     )
@@ -550,12 +554,11 @@ fun SetItem(
             .clip(RoundedCornerShape(12.dp))
             .background(backgroundColor)
             .border(2.dp, borderColor, RoundedCornerShape(12.dp))
-            .clickable(onClick = onItemClick) // 클릭 범위를 행 전체로 확장
+            .clickable(onClick = onItemClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. 체크 표시/번호 아이콘 (왼쪽 고정)
         Box(
             modifier = Modifier
                 .size(32.dp)
@@ -577,7 +580,6 @@ fun SetItem(
             }
         }
 
-        // 2. 세트 이름 (중앙 왼쪽)
         Text(
             text = "세트 ${index + 1}",
             fontWeight = FontWeight.Bold,
@@ -588,10 +590,8 @@ fun SetItem(
             }
         )
 
-        // 3. 중간 여백
         Spacer(modifier = Modifier.weight(1f))
 
-        // 4. 무게 및 횟수 정보 (오른쪽 끝)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -666,7 +666,6 @@ fun SettingsSheet(
     var localRestTime by remember { mutableIntStateOf(restTime) }
     val workoutTypes = listOf("횟수" to "reps", "시간" to "time")
 
-
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -679,7 +678,6 @@ fun SettingsSheet(
         ) {
             Text("운동 설정", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
 
-            // 운동 방식
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("운동 방식", style = MaterialTheme.typography.titleMedium)
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -696,8 +694,6 @@ fun SettingsSheet(
                 }
             }
 
-
-            // 총 세트 수
             NumberPicker(
                 label = "총 세트 수",
                 value = localSets,
@@ -706,7 +702,6 @@ fun SettingsSheet(
                 unit = "세트"
             )
 
-            // 휴식 시간
             NumberPicker(
                 label = "휴식 시간",
                 value = localRestTime,
@@ -715,7 +710,6 @@ fun SettingsSheet(
                 step = 5,
                 unit = "초"
             )
-
 
             if (isWorkoutStarted) {
                 OutlinedButton(
@@ -820,7 +814,6 @@ fun EditRepsDialog(
                 Text("세트 ${setNumber}의 ${if (unit == "분") "운동 시간" else "반복 횟수와 무게"}을 조정합니다.", style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(24.dp))
 
-                // Reps/Time picker
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(24.dp)
