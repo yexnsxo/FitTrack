@@ -41,15 +41,15 @@ data class TodayExerciseEntity(
     val category: String,
 
     // 사용자가 선택한 목표 값
-    val sets: Int = 1,
+    var sets: Int = 1, // ✅ var로 변경 (기록에 따라 변경될 수 있음)
     val repsPerSet: Int? = null,
     val duration: Int? = null, // 목표 시간(분)
 
     // 실제 수행 결과 필드
     val actualDurationSec: Int = 0, // 실제 운동 시간(초)
-    val actualReps: Int = 0,        // 실제 수행 횟수
-    val setReps: String = "",       // 세트별 실제 횟수 (e.g., "12,12,10")
-    val setWeights: String = "",    // 세트별 실제 무게 (e.g., "20,20,25")
+    val actualReps: Int = 0,        // 실제 수행 횟수(근력) 또는 총 분(시간기반)
+    val setReps: String = "",       // 세트별 실제 횟수/분 (e.g., "12,12,10" 또는 "5,5,5")
+    val setWeights: String = "",    // 세트별 실제 무게/거리 (e.g., "20,20,25" 또는 "1.2,1.5,1.0")
 
     val calories: Int,
     val difficulty: String,
@@ -75,16 +75,16 @@ interface TodayExerciseDao {
     @Query("UPDATE today_exercises SET isCompleted = :completed WHERE rowId = :rowId")
     suspend fun updateCompleted(rowId: Long, completed: Boolean)
 
-    // ✅ 타이머 완료 후 실제 기록 업데이트용
+    // ✅ 타이머 완료 후 실제 기록 업데이트용 (sets도 함께 업데이트)
     @Query("""
         UPDATE today_exercises 
-        SET actualDurationSec = :actualSec, actualReps = :actualReps, calories = :calories, 
-            setReps = :setReps, setWeights = :setWeights, isCompleted = 1 
+        SET sets = :sets, actualDurationSec = :actualSec, actualReps = :actualReps, calories = :calories, 
+            setReps = :reps, setWeights = :weights, isCompleted = 1 
         WHERE rowId = :rowId
     """)
-    suspend fun completeExerciseRecord(rowId: Long, actualSec: Int, actualReps: Int, calories: Int, setReps: String, setWeights: String)
+    suspend fun completeExerciseRecord(rowId: Long, sets: Int, actualSec: Int, actualReps: Int, calories: Int, reps: String, weights: String)
 
-    // ✅ 체크 해제 시 기록 초기화용 (추가)
+    // ✅ 체크 해제 시 기록 초기화용
     @Query("""
         UPDATE today_exercises 
         SET actualDurationSec = 0, actualReps = 0, isCompleted = 0, calories = :calories,
@@ -109,11 +109,15 @@ interface TodayExerciseDao {
     """)
     suspend fun syncExerciseInfo(exerciseId: String, name: String, category: String, difficulty: String, description: String)
 
-    @Query("UPDATE today_exercises SET setReps = :reps, setWeights = :weights, actualReps = :totalReps WHERE rowId = :rowId")
-    suspend fun updateSetInfo(rowId: Long, reps: String, weights: String, totalReps: Int)
+    @Query("UPDATE today_exercises SET sets = :sets, setReps = :reps, setWeights = :weights, actualReps = :totalReps WHERE rowId = :rowId")
+    suspend fun updateSetInfo(rowId: Long, sets: Int, reps: String, weights: String, totalReps: Int)
 
-    @Query("UPDATE today_exercises SET setReps = :reps, setWeights = :weights, actualReps = :totalReps, calories = :calories WHERE rowId = :rowId")
-    suspend fun updateSetInfoWithCalories(rowId: Long, reps: String, weights: String, totalReps: Int, calories: Int)
+    @Query("""
+        UPDATE today_exercises 
+        SET sets = :sets, setReps = :reps, setWeights = :weights, actualReps = :totalReps, calories = :calories, actualDurationSec = :actualSec 
+        WHERE rowId = :rowId
+    """)
+    suspend fun updateSetInfoFull(rowId: Long, sets: Int, reps: String, weights: String, totalReps: Int, calories: Int, actualSec: Int)
 }
 
 // 4) Database
@@ -211,11 +215,10 @@ class TodoRepository(
 
     fun observeToday(dateKey: String) = dao.observeToday(dateKey)
 
-    suspend fun completeRecord(rowId: Long, actualSec: Int, actualReps: Int, calories: Int, setReps: String, setWeights: String) {
-        dao.completeExerciseRecord(rowId, actualSec, actualReps, calories, setReps, setWeights)
+    suspend fun completeRecord(rowId: Long, sets: Int, actualSec: Int, actualReps: Int, calories: Int, setReps: String, setWeights: String) {
+        dao.completeExerciseRecord(rowId, sets, actualSec, actualReps, calories, setReps, setWeights)
     }
 
-    // ✅ 체크 해제 시 초기화 메서드 추가
     suspend fun resetRecord(rowId: Long, calories: Int) {
         dao.resetExerciseRecord(rowId, calories)
     }
@@ -279,11 +282,11 @@ class TodoRepository(
         dao.updateAmounts(rowId, sets, repsPerSet, duration, calories)
     }
 
-    suspend fun updateSetInfo(rowId: Long, reps: String, weights: String, totalReps: Int) {
-        dao.updateSetInfo(rowId, reps, weights, totalReps)
+    suspend fun updateSetInfo(rowId: Long, sets: Int, reps: String, weights: String, totalReps: Int) {
+        dao.updateSetInfo(rowId, sets, reps, weights, totalReps)
     }
 
-    suspend fun updateSetInfoWithCalories(rowId: Long, reps: String, weights: String, totalReps: Int, calories: Int) {
-        dao.updateSetInfoWithCalories(rowId, reps, weights, totalReps, calories)
+    suspend fun updateSetInfoFull(rowId: Long, sets: Int, reps: String, weights: String, totalReps: Int, calories: Int, actualSec: Int) {
+        dao.updateSetInfoFull(rowId, sets, reps, weights, totalReps, calories, actualSec)
     }
 }

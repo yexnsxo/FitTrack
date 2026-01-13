@@ -24,10 +24,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -38,7 +40,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -66,7 +70,8 @@ import java.time.format.DateTimeFormatter
 fun RecordScreen(
     modifier: Modifier = Modifier,
     innerPadding: PaddingValues = PaddingValues(0.dp),
-    viewModel: RecordViewModel
+    viewModel: RecordViewModel,
+    todoViewModel: TodoViewModel
 ) {
     val showCalendar by viewModel.showCalendar.collectAsState()
 
@@ -115,7 +120,7 @@ fun RecordScreen(
 
         Box(modifier = Modifier.weight(1f)) {
             if (showCalendar) {
-                CalendarView(viewModel = viewModel)
+                CalendarView(viewModel = viewModel, todoViewModel = todoViewModel)
             } else {
                 AllPhotosView(viewModel = viewModel)
             }
@@ -124,7 +129,7 @@ fun RecordScreen(
 }
 
 @Composable
-fun CalendarView(viewModel: RecordViewModel) {
+fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel) {
     val photos by viewModel.photosForSelectedDate.collectAsState()
     val markedDates by viewModel.markedDates.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
@@ -217,7 +222,7 @@ fun CalendarView(viewModel: RecordViewModel) {
                             }
                         }
                     }
-                    ExerciseListView(exercises = exercises)
+                    ExerciseListView(exercises = exercises, todoViewModel = todoViewModel)
                 }
             }
         }
@@ -317,8 +322,9 @@ fun RecordCalendar(
 }
 
 @Composable
-fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
+fun ExerciseListView(exercises: List<TodayExerciseEntity>, todoViewModel: TodoViewModel) {
     val expandedState = remember { mutableStateMapOf<Long, Boolean>() }
+    var editingSetInfo by remember { mutableStateOf<TodayExerciseEntity?>(null) }
 
     Column(
         modifier = Modifier
@@ -350,19 +356,38 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = exercise.name,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 17.sp,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = exercise.name,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 17.sp,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            // ✅ 연필 아이콘 클릭 시 세트 상세 수정 모달 오픈
+                            IconButton(
+                                onClick = { editingSetInfo = exercise },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "상세 기록 수정",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color.Gray
+                                )
+                            }
+                        }
 
                         val totalReps = exercise.actualReps
                         val durationMinutes = exercise.actualDurationSec / 60
                         val durationSeconds = exercise.actualDurationSec % 60
 
-                        // ✅ summaryText 생성 로직
+                        // summaryText 생성 로직
                         val summaryText = buildString {
-                            val isTimeBased = exercise.category == "cardio" || exercise.category == "flexibility" || exercise.duration != null
+                            // ✅ repsPerSet이 없으면 시간 기반 운동으로 판단
+                            val isTimeBased = exercise.repsPerSet == null
 
                             append("${exercise.sets}세트 (")
 
@@ -411,16 +436,28 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
             )
         }
     }
+
+    // ✅ 세트별 상세 정보 수정 모달 표시
+    editingSetInfo?.let { item ->
+        EditSetInfoDialog(
+            item = item,
+            onDismiss = { editingSetInfo = null },
+            onConfirm = { reps, weights ->
+                todoViewModel.updateSetInfo(item.rowId, reps, weights)
+                editingSetInfo = null
+            }
+        )
+    }
 }
 
 @Composable
 fun ExerciseDetailView(exercise: TodayExerciseEntity) {
-    val isTimeBased = exercise.category == "cardio" || exercise.category == "flexibility" || exercise.duration != null
+    // ✅ repsPerSet이 없으면 시간 기반 운동으로 판단
+    val isTimeBased = exercise.repsPerSet == null
 
     val setReps = if (exercise.setReps.isNotEmpty()) {
         exercise.setReps.split(",").mapNotNull { it.trim().toIntOrNull() }
     } else if (isTimeBased && exercise.sets > 0) {
-        // ✅ 시간 운동인데 기록이 비어있는 경우(예: 체크박스 완료), 목표 시간을 기반으로 더미 데이터 생성
         List(exercise.sets) { exercise.duration ?: 0 }
     } else {
         emptyList()
@@ -428,7 +465,7 @@ fun ExerciseDetailView(exercise: TodayExerciseEntity) {
 
     val setWeights = exercise.setWeights
         .split(",")
-        .mapNotNull { it.trim().toDoubleOrNull() }
+        .map { it.trim() }
 
     // 세트 정보가 없으면 펼쳐도 보여줄 게 없게 처리
     if (setReps.isEmpty()) return
@@ -439,7 +476,8 @@ fun ExerciseDetailView(exercise: TodayExerciseEntity) {
             .padding(top = 10.dp, bottom = 8.dp)
     ) {
         setReps.forEachIndexed { idx, reps ->
-            val weight = setWeights.getOrNull(idx)
+            val weight = setWeights.getOrNull(idx) ?: ""
+            val unit2 = if (isTimeBased) "km" else "kg"
 
             Row(
                 modifier = Modifier
@@ -448,22 +486,23 @@ fun ExerciseDetailView(exercise: TodayExerciseEntity) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 왼쪽: "세트 1:"
                 Text(
                     text = "세트 ${idx + 1}:",
                     fontSize = 15.sp,
                     color = Color(0xFF6B7280)
                 )
 
-                // 오른쪽: 시간 기반이면 "분", 횟수 기반이면 "회"
                 val valueText = buildString {
                     if (isTimeBased) {
                         append("${reps}분")
+                        if (weight.isNotEmpty() && (weight.toDoubleOrNull() ?: 0.0) > 0.0) {
+                            append(" / ${weight}${unit2}")
+                        }
                     } else {
                         append("${reps}회")
-                        if (weight != null && weight > 0.0) {
-                            val w = if (weight % 1.0 == 0.0) weight.toInt().toString() else weight.toString()
-                            append(" / ${w}kg")
+                        if (weight.isNotEmpty() && (weight.toDoubleOrNull() ?: 0.0) > 0.0) {
+                            val w = if (weight.toDoubleOrNull()!! % 1.0 == 0.0) weight.toDoubleOrNull()!!.toInt().toString() else weight
+                            append(" / ${w}${unit2}")
                         }
                     }
                 }

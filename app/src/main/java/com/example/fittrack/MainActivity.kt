@@ -212,7 +212,10 @@ fun MainScreen(
                 )
             }
             composable(Destination.RECORD.route) {
-                RecordScreen(viewModel = recordViewModel)
+                RecordScreen(
+                    viewModel = recordViewModel,
+                    todoViewModel = todoViewModel
+                )
             }
             composable(
                 route = timerPattern,

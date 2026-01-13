@@ -29,14 +29,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -210,6 +214,7 @@ fun TodoScreen(
                     shape = shape,
                     color = Color.White
                 ) {
+                    val contentColor = Color.White
                     Column {
                         Row(
                             modifier = Modifier
@@ -223,14 +228,14 @@ fun TodoScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "오늘 운동 남기기",
-                                    color = Color.White,
+                                    color = contentColor,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     text = "사진을 남기시겠습니까?",
-                                    color = Color.White.copy(alpha = 0.9f),
+                                    color = contentColor.copy(alpha = 0.9f),
                                     fontSize = 14.sp
                                 )
                             }
@@ -294,6 +299,7 @@ fun TodoScreen(
                     shape = shape,
                     color = Color.White
                 ) {
+                    val contentColor = Color.White
                     Column {
                         Row(
                             modifier = Modifier
@@ -307,14 +313,14 @@ fun TodoScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "사진 선택",
-                                    color = Color.White,
+                                    color = contentColor,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     text = "사진을 촬영하거나 갤러리에서 선택하세요.",
-                                    color = Color.White.copy(alpha = 0.9f),
+                                    color = contentColor.copy(alpha = 0.9f),
                                     fontSize = 14.sp
                                 )
                             }
@@ -732,27 +738,36 @@ fun EditSetInfoDialog(
     onConfirm: (reps: List<String>, weights: List<String>) -> Unit
 ) {
     val currentReps = remember {
-        item.setReps.split(",").map { it.trim() }.toMutableList()
+        if (item.setReps.isNotEmpty()) item.setReps.split(",").map { it.trim() } else emptyList()
     }
     val currentWeights = remember {
-        item.setWeights.split(",").map { it.trim() }.toMutableList()
+        if (item.setWeights.isNotEmpty()) item.setWeights.split(",").map { it.trim() } else emptyList()
     }
 
+    val displaySetCount = maxOf(item.sets, currentReps.size)
+
     val repsState = remember {
-        mutableStateOf(List(item.sets) { i ->
-            currentReps.getOrElse(i) { item.repsPerSet?.toString() ?: "" }
+        mutableStateOf(List(displaySetCount) { i ->
+            currentReps.getOrElse(i) { item.repsPerSet?.toString() ?: item.duration?.toString() ?: "" }
         })
     }
     val weightsState = remember {
-        mutableStateOf(List(item.sets) { i ->
+        mutableStateOf(List(displaySetCount) { i ->
             currentWeights.getOrElse(i) { "" }
         })
     }
 
+    var isDeleteMode by remember { mutableStateOf(false) }
+
+    // ✅ 판단 기준을 repsPerSet 여부로 변경 (카테고리 기반 로직 제거)
+    val isTimeBased = item.repsPerSet == null
+    val label1 = if (isTimeBased) "분" else "회"
+    val label2 = if (isTimeBased) "km" else "kg"
+
     Dialog(onDismissRequest = onDismiss) {
         val shape = RoundedCornerShape(26.dp)
         Surface(
-            modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(max = 700.dp),
             shape = shape,
             color = Color.White
         ) {
@@ -766,17 +781,18 @@ fun EditSetInfoDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
+                    val titleColor = Color.White
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = item.name,
-                            color = Color.White,
+                            color = titleColor,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
                             text = "세트 정보 수정",
-                            color = Color.White.copy(alpha = 0.9f),
+                            color = titleColor.copy(alpha = 0.9f),
                             fontSize = 14.sp
                         )
                     }
@@ -798,7 +814,7 @@ fun EditSetInfoDialog(
                         modifier = Modifier.weight(1f, fill = false),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(item.sets) { i ->
+                        itemsIndexed(repsState.value) { i, _ ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -807,6 +823,25 @@ fun EditSetInfoDialog(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
+                                if (isDeleteMode) {
+                                    IconButton(
+                                        onClick = {
+                                            if (repsState.value.size > 1) {
+                                                repsState.value = repsState.value.toMutableList().apply { removeAt(i) }
+                                                weightsState.value = weightsState.value.toMutableList().apply { removeAt(i) }
+                                            }
+                                        },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.RemoveCircleOutline,
+                                            contentDescription = "삭제",
+                                            tint = Color.Red,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+
                                 Text(
                                     "세트 ${i + 1}",
                                     modifier = Modifier.width(45.dp),
@@ -821,20 +856,53 @@ fun EditSetInfoDialog(
                                         newList[i] = newValue
                                         repsState.value = newList
                                     },
-                                    label = "회",
+                                    label = label1,
                                     modifier = Modifier.weight(1f)
                                 )
 
-                                CompactStepperField(
-                                    value = weightsState.value[i],
-                                    onValueChange = { newValue ->
-                                        val newList = weightsState.value.toMutableList()
-                                        newList[i] = newValue
-                                        weightsState.value = newList
+                                if (!isTimeBased) {
+                                    CompactStepperField(
+                                        value = weightsState.value[i],
+                                        onValueChange = { newValue ->
+                                            val newList = weightsState.value.toMutableList()
+                                            newList[i] = newValue
+                                            weightsState.value = newList
+                                        },
+                                        label = label2,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        repsState.value = repsState.value + (item.repsPerSet?.toString() ?: item.duration?.toString() ?: "10")
+                                        weightsState.value = weightsState.value + ""
+                                        isDeleteMode = false
                                     },
-                                    label = "kg",
-                                    modifier = Modifier.weight(1f)
-                                )
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9), contentColor = Color(0xFF475569))
+                                ) {
+                                    Text("세트 추가", fontWeight = FontWeight.Bold)
+                                }
+                                Button(
+                                    onClick = { isDeleteMode = !isDeleteMode },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isDeleteMode) Color(0xFFFFEBEE) else Color(0xFFF1F5F9),
+                                        contentColor = if (isDeleteMode) Color.Red else Color(0xFF475569)
+                                    )
+                                ) {
+                                    Text(if (isDeleteMode) "삭제 취소" else "세트 삭제", fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -877,7 +945,14 @@ private fun CompactStepperField(
     ) {
         BasicTextField(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = { raw ->
+                val filtered = if (label == "km") {
+                    raw.filter { it.isDigit() || it == '.' }
+                } else {
+                    raw.filter { it.isDigit() }
+                }
+                onValueChange(filtered)
+            },
             modifier = Modifier.weight(1f),
             textStyle = TextStyle(
                 textAlign = TextAlign.Center,
@@ -885,19 +960,21 @@ private fun CompactStepperField(
                 fontSize = 14.sp,
                 color = Color(0xFF111827)
             ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = if (label == "km") KeyboardType.Decimal else KeyboardType.Number),
             singleLine = true
         )
         Text(label, fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(end = 2.dp))
         
         StepperButtons(
             onUp = {
-                val current = value.toIntOrNull() ?: 0
-                onValueChange((current + 1).toString())
+                val current = value.toDoubleOrNull() ?: 0.0
+                val next = if (label == "km") current + 0.1 else current + 1.0
+                onValueChange(if (label == "km") String.format("%.1f", next) else next.toInt().toString())
             },
             onDown = {
-                val current = value.toIntOrNull() ?: 0
-                if (current > 0) onValueChange((current - 1).toString())
+                val current = value.toDoubleOrNull() ?: 0.0
+                val next = if (label == "km") (current - 0.1).coerceAtLeast(0.0) else (current - 1.0).coerceAtLeast(0.0)
+                onValueChange(if (label == "km") String.format("%.1f", next) else next.toInt().toString())
             }
         )
     }

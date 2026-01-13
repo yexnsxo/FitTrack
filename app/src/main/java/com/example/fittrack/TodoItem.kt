@@ -203,7 +203,8 @@ private fun TodayRow(
                             }
                         )
 
-                        val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration != null
+                        // ✅ repsPerSet이 없으면 시간 기반 운동으로 판단
+                        val isTimeBased = item.repsPerSet == null
 
                         TimerPill(
                             actualSec = item.actualDurationSec,
@@ -218,7 +219,8 @@ private fun TodayRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration != null
+                        // ✅ repsPerSet이 없으면 시간 기반 운동으로 판단
+                        val isTimeBased = item.repsPerSet == null
 
                         if (isTimeBased) {
                             if (item.actualDurationSec > 0) {
@@ -235,7 +237,7 @@ private fun TodayRow(
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF10B981),
-                                    modifier = Modifier.clickable { if (selected) editOpen.value = true }
+                                    modifier = Modifier.clickable { onEditSetInfo() }
                                 )
                             } else {
                                 val totalGoalMinutes = item.sets * (item.duration ?: 0)
