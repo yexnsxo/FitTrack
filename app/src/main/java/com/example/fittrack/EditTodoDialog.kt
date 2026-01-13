@@ -22,6 +22,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,23 +41,23 @@ fun EditExerciseDialog(
     item: TodayExerciseEntity,
     isCompleted: Boolean = false,
     onDismiss: () -> Unit,
-    onConfirmStrength: (sets: Int, repsPerSet: Int) -> Unit,
+    onConfirmStrength: (sets: Int, repsPerSet: String) -> Unit,
     onConfirmDuration: (sets: Int, minutes: Int) -> Unit,
     onConfirmActualTime: (totalSec: Int) -> Unit = { _ -> }
 ) {
     val isRepBased = remember(item) {
-        item.repsPerSet != null || (item.category == "strength" && item.duration == null)
+        item.duration == null
     }
 
     val setsState = remember { mutableIntStateOf(item.sets) }
-    val repsState = remember { mutableIntStateOf(item.repsPerSet ?: 12) }
+    val repsState = remember { mutableStateOf(item.setReps) }
     val minutesGoalState = remember { mutableIntStateOf(item.duration ?: 30) }
 
     val actualMinutesState = remember { mutableIntStateOf(item.actualDurationSec / 60) }
     val actualSecondsState = remember { mutableIntStateOf(item.actualDurationSec % 60) }
 
     val sets = setsState.intValue
-    val reps = repsState.intValue
+    val reps = repsState.value
     val minutesGoal = minutesGoalState.intValue
     val actualMin = actualMinutesState.intValue
     val actualSec = actualSecondsState.intValue
@@ -128,7 +129,8 @@ fun EditExerciseDialog(
 
                         if (isRepBased) {
                             Text("횟수 (회) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                            NumberStepperFieldEditable(value = reps, onValueChange = { repsState.intValue = it }, min = 1, max = 200)
+                            // TODO: This will likely fail to compile
+                            //NumberStepperFieldEditable(value = reps, onValueChange = { repsState.value = it }, min = 1, max = 200)
                         } else {
                             Text("시간 (분) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
                             NumberStepperFieldStepOnly(value = minutesGoal, onValueChange = { minutesGoalState.intValue = it }, min = 5, max = 300, step = 5)

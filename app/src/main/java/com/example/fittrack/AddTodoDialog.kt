@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,20 +48,15 @@ import kotlin.math.roundToInt
 fun AddExerciseDialog(
     exercise: Exercise,
     onDismiss: () -> Unit,
-    onConfirmStrength: (sets: Int, repsPerSet: Int) -> Unit,
+    onConfirmStrength: (sets: Int, repsPerSet: String) -> Unit,
     onConfirmDuration: (sets: Int, minutes: Int) -> Unit
 ) {
     val isRepBased = remember(exercise) {
-        when {
-            exercise.repsPerSet != null -> true
-            exercise.duration != null -> false
-            exercise.category == "strength" -> true
-            else -> false
-        }
+        exercise.duration == null
     }
 
     val setsState = remember { mutableIntStateOf(3) }
-    val repsState = remember { mutableIntStateOf(exercise.repsPerSet ?: 12) }
+    val repsState = remember { mutableIntStateOf(12) }
     val minutesState = remember { mutableIntStateOf(exercise.duration ?: 30) }
 
     val sets = setsState.intValue
@@ -71,8 +67,10 @@ fun AddExerciseDialog(
 
     val kcal = remember(exercise, sets, reps, minutes) {
         if (isRepBased) {
-            val baseReps = 10.0
-            (exercise.calories * sets * (reps / baseReps)).roundToInt()
+            val repsList = List(sets) { reps }
+            val totalReps = repsList.sum().toDouble()
+            val baseReps = 10.0 * repsList.size
+            (exercise.calories * sets * (totalReps / baseReps)).roundToInt()
         } else {
             val baseMin = (exercise.duration ?: 5).toDouble()
             (exercise.calories * sets * (minutes / baseMin)).roundToInt()
@@ -214,7 +212,10 @@ fun AddExerciseDialog(
 
                     Button(
                         onClick = {
-                            if (isRepBased) onConfirmStrength(sets, reps)
+                            if (isRepBased) {
+                                val setRepsString = List(sets) { reps }.joinToString(",")
+                                onConfirmStrength(sets, setRepsString)
+                            }
                             else onConfirmDuration(sets, minutes)
                         },
                         modifier = Modifier

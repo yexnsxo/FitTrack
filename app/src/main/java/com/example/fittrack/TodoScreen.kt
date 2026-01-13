@@ -48,6 +48,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -169,8 +170,8 @@ fun TodoScreen(
                         vm.updateTodayRowDuration(item, sets, minutes)
                     },
                     onTimerClick = { item ->
-                        val target = item.repsPerSet ?: item.duration ?: 0
-                        val type = if (item.repsPerSet != null) "reps" else "time"
+                        val target = item.duration ?: 0
+                        val type = if (item.duration != null) "time" else "reps"
                         val sets = item.sets
                         navController.navigate("timer?rowId=${item.rowId}&name=${item.name}&target=$target&type=$type&sets=$sets")
                     },
@@ -398,8 +399,8 @@ fun TodoScreen(
             EditSetInfoDialog(
                 item = item,
                 onDismiss = { pendingEditSet.value = null },
-                onConfirm = { reps, weights ->
-                    vm.updateSetInfo(item.rowId, reps, weights)
+                onConfirm = { sets, reps, weights ->
+                    vm.updateSetInfo(item.rowId, sets, reps, weights)
                     pendingEditSet.value = null
                 }
             )
@@ -729,21 +730,22 @@ fun createImageFile(context: Context): File {
 fun EditSetInfoDialog(
     item: TodayExerciseEntity,
     onDismiss: () -> Unit,
-    onConfirm: (reps: List<String>, weights: List<String>) -> Unit
+    onConfirm: (sets: Int, reps: List<String>, weights: List<String>) -> Unit
 ) {
-    val currentReps = remember {
-        item.setReps.split(",").map { it.trim() }.toMutableList()
+    val currentReps = remember(item) {
+        item.setReps.split(",").map { it.trim() }
     }
-    val currentWeights = remember {
-        item.setWeights.split(",").map { it.trim() }.toMutableList()
+    val currentWeights = remember(item) {
+        item.setWeights.split(",").map { it.trim() }
     }
 
-    val repsState = remember {
+    val setsState = remember(item) { mutableStateOf(item.sets) }
+    val repsState = remember(item) {
         mutableStateOf(List(item.sets) { i ->
-            currentReps.getOrElse(i) { item.repsPerSet?.toString() ?: "" }
+            currentReps.getOrElse(i) { "" }
         })
     }
-    val weightsState = remember {
+    val weightsState = remember(item) {
         mutableStateOf(List(item.sets) { i ->
             currentWeights.getOrElse(i) { "" }
         })
@@ -752,7 +754,9 @@ fun EditSetInfoDialog(
     Dialog(onDismissRequest = onDismiss) {
         val shape = RoundedCornerShape(26.dp)
         Surface(
-            modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 600.dp),
             shape = shape,
             color = Color.White
         ) {
@@ -794,11 +798,39 @@ fun EditSetInfoDialog(
                     modifier = Modifier.padding(horizontal = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(18.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("세트 수", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        CompactStepperField(
+                            value = setsState.value.toString(),
+                            onValueChange = {
+                                val newSize = it.toIntOrNull()?.coerceIn(1, 100) ?: 1
+                                val oldSize = setsState.value
+
+                                setsState.value = newSize
+                                if (newSize > oldSize) {
+                                    repsState.value = repsState.value + List(newSize - oldSize) { "" }
+                                    weightsState.value = weightsState.value + List(newSize - oldSize) { "" }
+                                } else if (newSize < oldSize) {
+                                    repsState.value = repsState.value.take(newSize)
+                                    weightsState.value = weightsState.value.take(newSize)
+                                }
+                            },
+                            label = "세트"
+                        )
+                    }
+
                     LazyColumn(
                         modifier = Modifier.weight(1f, fill = false),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(item.sets) { i ->
+                        items(setsState.value) { i ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -815,22 +847,26 @@ fun EditSetInfoDialog(
                                 )
                                 
                                 CompactStepperField(
-                                    value = repsState.value[i],
+                                    value = repsState.value.getOrElse(i) { "" },
                                     onValueChange = { newValue ->
                                         val newList = repsState.value.toMutableList()
-                                        newList[i] = newValue
-                                        repsState.value = newList
+                                        if (i < newList.size) {
+                                            newList[i] = newValue
+                                            repsState.value = newList
+                                        }
                                     },
                                     label = "회",
                                     modifier = Modifier.weight(1f)
                                 )
 
                                 CompactStepperField(
-                                    value = weightsState.value[i],
+                                    value = weightsState.value.getOrElse(i) { "" },
                                     onValueChange = { newValue ->
                                         val newList = weightsState.value.toMutableList()
-                                        newList[i] = newValue
-                                        weightsState.value = newList
+                                        if (i < newList.size) {
+                                            newList[i] = newValue
+                                            weightsState.value = newList
+                                        }
                                     },
                                     label = "kg",
                                     modifier = Modifier.weight(1f)
@@ -842,7 +878,7 @@ fun EditSetInfoDialog(
                     Spacer(Modifier.height(8.dp))
 
                     Button(
-                        onClick = { onConfirm(repsState.value, weightsState.value) },
+                        onClick = { onConfirm(setsState.value, repsState.value, weightsState.value) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(60.dp),
