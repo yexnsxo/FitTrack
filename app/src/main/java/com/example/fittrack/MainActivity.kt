@@ -124,7 +124,7 @@ fun MainScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color(0xffFFFEF4),
+        containerColor = Color(0xffF5F5F5),
         topBar = { Header() },
         bottomBar = {
             NavigationBar(containerColor = Color.White) {
