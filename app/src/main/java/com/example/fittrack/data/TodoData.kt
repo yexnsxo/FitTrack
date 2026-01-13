@@ -249,6 +249,12 @@ class TodoRepository(
         calories: Int,
         isCompleted: Boolean = false
     ) {
+        val initialSetReps = if (repsPerSet != null) {
+            List(sets) { repsPerSet }.joinToString(",")
+        } else {
+            ""
+        }
+
         dao.insert(
             TodayExerciseEntity(
                 dateKey = dateKey,
@@ -261,7 +267,8 @@ class TodoRepository(
                 calories = calories,
                 difficulty = ex.difficulty,
                 description = ex.description,
-                isCompleted = isCompleted
+                isCompleted = isCompleted,
+                setReps = initialSetReps
             )
         )
     }

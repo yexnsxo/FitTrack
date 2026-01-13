@@ -197,29 +197,28 @@ fun CalendarView(viewModel: RecordViewModel, navController: NavController) {
                                     Spacer(Modifier.width(4.dp))
                                     Text("사진 삭제", color = Color.Gray, fontSize = 13.sp)
                                 }
+                                Spacer(Modifier.width(8.dp))
                             }
 
-                            if (exercises.isNotEmpty()) {
-                                Spacer(Modifier.width(8.dp))
-                                OutlinedButton(
-                                    onClick = {
-                                        val dateStr = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                                        navController.navigate("editRecord/$dateStr")
-                                    },
-                                    modifier = Modifier.height(34.dp),
-                                    border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-                                    shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "편집",
-                                        modifier = Modifier.size(18.dp),
-                                        tint = Color.Gray
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("기록 편집", color = Color.Gray, fontSize = 13.sp)
-                                }
+                            val buttonText = if (exercises.isNotEmpty() || photos.isNotEmpty()) "기록 편집" else "기록 추가"
+                            OutlinedButton(
+                                onClick = {
+                                    val dateStr = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                    navController.navigate("editRecord/$dateStr")
+                                },
+                                modifier = Modifier.height(34.dp),
+                                border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "편집",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = Color.Gray
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(text = buttonText, color = Color.Gray, fontSize = 13.sp)
                             }
                         }
                     }
