@@ -173,7 +173,9 @@ fun TodoScreen(
                         val target = item.duration ?: 0
                         val type = if (item.duration != null) "time" else "reps"
                         val sets = item.sets
-                        navController.navigate("timer?rowId=${item.rowId}&name=${item.name}&target=$target&type=$type&sets=$sets")
+                        val setReps = item.setReps
+                        val setWeights = item.setWeights
+                        navController.navigate("timer?rowId=${item.rowId}&name=${item.name}&target=$target&type=$type&sets=$sets&setReps=$setReps&setWeights=$setWeights")
                     },
                     onEditActualTime = { item, totalSec ->
                         vm.updateActualTime(item.rowId, totalSec) // ✅ 콜백 연결 재확인

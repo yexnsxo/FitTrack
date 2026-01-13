@@ -195,7 +195,7 @@ fun MainScreen(
         }
     ) { innerPadding ->
         val timerPattern =
-            "${Destination.TIMER.route}?rowId={rowId}&name={name}&target={target}&type={type}&sets={sets}"
+            "${Destination.TIMER.route}?rowId={rowId}&name={name}&target={target}&type={type}&sets={sets}&setReps={setReps}&setWeights={setWeights}"
 
         NavHost(
             navController = navController,
@@ -232,7 +232,9 @@ fun MainScreen(
                     navArgument("name") { type = NavType.StringType; defaultValue = "" },
                     navArgument("target") { type = NavType.IntType; defaultValue = 0 },
                     navArgument("type") { type = NavType.StringType; defaultValue = "" },
-                    navArgument("sets") { type = NavType.IntType; defaultValue = 0 }
+                    navArgument("sets") { type = NavType.IntType; defaultValue = 0 },
+                    navArgument("setReps") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("setWeights") { type = NavType.StringType; defaultValue = "" }
                 )
             ) { backStackEntry ->
                 val rowId = backStackEntry.arguments?.getLong("rowId") ?: -1L
@@ -240,10 +242,12 @@ fun MainScreen(
                 val target = backStackEntry.arguments?.getInt("target") ?: 0
                 val type = backStackEntry.arguments?.getString("type") ?: ""
                 val sets = backStackEntry.arguments?.getInt("sets") ?: 0
+                val setReps = backStackEntry.arguments?.getString("setReps") ?: ""
+                val setWeights = backStackEntry.arguments?.getString("setWeights") ?: ""
 
                 LaunchedEffect(rowId) {
                     if (rowId != -1L) {
-                        timerViewModel.initWorkout(rowId, name, target, type, sets)
+                        timerViewModel.initWorkout(rowId, name, target, type, sets, setReps, setWeights)
                     }
                 }
 

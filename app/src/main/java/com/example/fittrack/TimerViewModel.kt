@@ -60,8 +60,16 @@ class TimerViewModel : ViewModel() {
 
 
     // Public functions to control the timer, delegating to the service
-    fun initWorkout(rowId: Long, name: String, target: Int, type: String, targetSets: Int) =
-        timerService?.initWorkout(rowId, name, target, type, targetSets)
+    fun initWorkout(
+        rowId: Long,
+        name: String,
+        target: Int,
+        type: String,
+        targetSets: Int,
+        setReps: String,
+        setWeights: String
+    ) =
+        timerService?.initWorkout(rowId, name, target, type, targetSets, setReps, setWeights)
 
     fun startWorkout() = timerService?.startWorkout()
     fun stopRest() = timerService?.stopRest()
