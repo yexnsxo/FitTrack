@@ -54,6 +54,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         }.flatMapLatest { date ->
             date?.let {
                 exerciseDao.observeToday(it.toString())
+                    .map { list -> list.filter { it.isCompleted } } // ✅ 완료된 운동만 필터링
             } ?: flowOf(emptyList())
         }.stateIn(
             scope = viewModelScope,
