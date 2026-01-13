@@ -46,18 +46,18 @@ fun EditExerciseDialog(
     onConfirmActualTime: (totalSec: Int) -> Unit = { _ -> }
 ) {
     val isRepBased = remember(item) {
-        item.duration == null
+        item.duration.isEmpty()
     }
 
     val setsState = remember { mutableIntStateOf(item.sets) }
-    val repsState = remember { mutableStateOf(item.setReps) }
-    val minutesGoalState = remember { mutableIntStateOf(item.duration ?: 30) }
+    val repsState = remember { mutableIntStateOf(item.setReps.split(',').firstOrNull()?.trim()?.toIntOrNull() ?: 12) }
+    val minutesGoalState = remember { mutableIntStateOf(item.duration.split(",").firstOrNull()?.trim()?.toIntOrNull() ?: 30) }
 
     val actualMinutesState = remember { mutableIntStateOf(item.actualDurationSec / 60) }
     val actualSecondsState = remember { mutableIntStateOf(item.actualDurationSec % 60) }
 
     val sets = setsState.intValue
-    val reps = repsState.value
+    val reps = repsState.intValue
     val minutesGoal = minutesGoalState.intValue
     val actualMin = actualMinutesState.intValue
     val actualSec = actualSecondsState.intValue
@@ -124,21 +124,44 @@ fun EditExerciseDialog(
                             Text("소요 시간 저장하기", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     } else {
-                        Text("세트 수 *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                        NumberStepperFieldStepOnly(value = sets, onValueChange = { setsState.intValue = it }, min = 1, max = 50, step = 1)
-
                         if (isRepBased) {
-                            Text("횟수 (회) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                            // TODO: This will likely fail to compile
-                            //NumberStepperFieldEditable(value = reps, onValueChange = { repsState.value = it }, min = 1, max = 200)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text("세트 :", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827), modifier = Modifier.weight(0.3f))
+                                Box(modifier = Modifier.weight(0.7f)) {
+                                    NumberStepperFieldStepOnly(value = sets, onValueChange = { setsState.intValue = it }, min = 1, max = 50, step = 1)
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text("횟수 :", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827), modifier = Modifier.weight(0.3f))
+                                Box(modifier = Modifier.weight(0.7f)) {
+                                    NumberStepperFieldStepOnly(value = reps, onValueChange = { repsState.intValue = it }, min = 1, max = 200, step = 1)
+                                }
+                            }
                         } else {
-                            Text("시간 (분) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                            NumberStepperFieldStepOnly(value = minutesGoal, onValueChange = { minutesGoalState.intValue = it }, min = 5, max = 300, step = 5)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text("세트 :", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827), modifier = Modifier.weight(0.3f))
+                                Box(modifier = Modifier.weight(0.7f)) {
+                                    NumberStepperFieldStepOnly(value = sets, onValueChange = { setsState.intValue = it }, min = 1, max = 50, step = 1)
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text("시간(분) :", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827), modifier = Modifier.weight(0.3f))
+                                Box(modifier = Modifier.weight(0.7f)) {
+                                    NumberStepperFieldStepOnly(value = minutesGoal, onValueChange = { minutesGoalState.intValue = it }, min = 5, max = 300, step = 5)
+                                }
+                            }
                         }
 
                         Spacer(Modifier.height(8.dp))
                         Button(
-                            onClick = { if (isRepBased) onConfirmStrength(sets, reps) else onConfirmDuration(sets, minutesGoal) },
+                            onClick = {
+                                if (isRepBased) {
+                                    val repsString = List(sets) { reps }.joinToString(", ")
+                                    onConfirmStrength(sets, repsString)
+                                } else {
+                                    onConfirmDuration(sets, minutesGoal)
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth().height(60.dp),
                             shape = RoundedCornerShape(22.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Main40)

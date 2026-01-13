@@ -230,7 +230,7 @@ fun MainScreen(
                 arguments = listOf(
                     navArgument("rowId") { type = NavType.LongType; defaultValue = -1L },
                     navArgument("name") { type = NavType.StringType; defaultValue = "" },
-                    navArgument("target") { type = NavType.IntType; defaultValue = 0 },
+                    navArgument("target") { type = NavType.StringType; defaultValue = "" },
                     navArgument("type") { type = NavType.StringType; defaultValue = "" },
                     navArgument("sets") { type = NavType.IntType; defaultValue = 0 },
                     navArgument("setReps") { type = NavType.StringType; defaultValue = "" },
@@ -239,7 +239,7 @@ fun MainScreen(
             ) { backStackEntry ->
                 val rowId = backStackEntry.arguments?.getLong("rowId") ?: -1L
                 val name = backStackEntry.arguments?.getString("name") ?: ""
-                val target = backStackEntry.arguments?.getInt("target") ?: 0
+                val target = backStackEntry.arguments?.getString("target") ?: ""
                 val type = backStackEntry.arguments?.getString("type") ?: ""
                 val sets = backStackEntry.arguments?.getInt("sets") ?: 0
                 val setReps = backStackEntry.arguments?.getString("setReps") ?: ""

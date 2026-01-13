@@ -145,7 +145,7 @@ class TodoViewModel(
             val totalReps = setReps.sumOf { it.toIntOrNull() ?: 0 }
 
             val updatedCalories = if (baseExercise != null) {
-                if (item.duration == null) {
+                if (item.duration.isNullOrEmpty()) {
                     (baseExercise.calories * (totalReps / 10.0)).roundToInt()
                 } else {
                     val baseMin = (baseExercise.duration ?: 5).toDouble()
@@ -172,7 +172,7 @@ class TodoViewModel(
             val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
 
             val updatedCalories = if (baseExercise != null) {
-                if (item.duration == null) {
+                if (item.duration.isNullOrEmpty()) {
                     // 근력 운동: 시간 수정 시에도 기존 수행 횟수 기준으로 칼로리 유지 (또는 필요 시 수정 가능)
                     item.calories
                 } else {
@@ -194,8 +194,8 @@ class TodoViewModel(
         viewModelScope.launch {
             val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
             if (checked) {
-                val estimatedSec = if (item.duration != null) {
-                    item.sets * (item.duration ?: 0) * 60
+                val estimatedSec = if (item.duration.isNotEmpty()) {
+                    item.sets * (item.duration.split(",").firstOrNull()?.trim()?.toIntOrNull() ?: 0) * 60
                 } else {
                     0
                 }
@@ -206,7 +206,7 @@ class TodoViewModel(
             } else {
                 val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
                 val initialCalories = if (baseExercise != null) {
-                    calcCalories(baseExercise, item.sets, item.setReps, item.duration)
+                    calcCalories(baseExercise, item.sets, item.setReps, item.duration.split(",").firstOrNull()?.trim()?.toIntOrNull())
                 } else {
                     item.calories
                 }
@@ -232,7 +232,8 @@ class TodoViewModel(
         viewModelScope.launch {
             val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
             val kcal = if (base != null) calcCalories(base, sets, null, minutes) else item.calories
-            repo.updateTodayAmounts(item.rowId, sets, minutes, kcal)
+            val durationString = List(sets) { minutes }.joinToString(",")
+            repo.updateTodayAmounts(item.rowId, sets, durationString, kcal)
         }
     }
 
@@ -246,7 +247,7 @@ class TodoViewModel(
             val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
 
             val updatedCalories = if (baseExercise != null && item.isCompleted) {
-                if (item.duration == null) {
+                if (item.duration.isNullOrEmpty()) {
                     (baseExercise.calories * (totalReps / 10.0)).roundToInt()
                 } else {
                     item.calories

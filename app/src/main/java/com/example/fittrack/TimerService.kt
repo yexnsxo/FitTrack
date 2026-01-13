@@ -100,7 +100,7 @@ class TimerService : Service() {
     fun initWorkout(
         rowId: Long,
         name: String,
-        target: Int,
+        target: String,
         type: String,
         targetSets: Int,
         setReps: String,
@@ -128,12 +128,22 @@ class TimerService : Service() {
             emptyList()
         }
 
-        // Initialize reps for each set
-        _setReps.value = List(_totalSets.value) { i ->
-            repsList.getOrElse(i) {
-                if (type == "time") target else 10 // default for time or reps
+        // Initialize reps or durations for each set
+        if (type == "time") {
+            val durationList = if (target.isNotBlank()) {
+                target.split(',').mapNotNull { it.trim().toIntOrNull() }
+            } else {
+                emptyList()
+            }
+            _setReps.value = List(_totalSets.value) { i ->
+                durationList.getOrElse(i) { 60 } // Default duration 60 seconds
+            }
+        } else { // reps
+            _setReps.value = List(_totalSets.value) { i ->
+                repsList.getOrElse(i) { 10 } // default for reps
             }
         }
+
 
         // Initialize weights for each set
         _setWeights.value = List(_totalSets.value) { i ->
@@ -169,7 +179,7 @@ class TimerService : Service() {
     }
     private fun startSetTimer() {
         setTimerJob?.cancel()
-        val setDurationInSeconds = _setReps.value.getOrNull(_currentSet.value - 1)?.times(60) ?: 0
+        val setDurationInSeconds = _setReps.value.getOrNull(_currentSet.value - 1) ?: 0
         _remainingSetTime.value = setDurationInSeconds
 
         setTimerJob = serviceScope.launch {
@@ -178,7 +188,7 @@ class TimerService : Service() {
                 _remainingSetTime.value--
                 updateNotification()
             }
-            if (_remainingSetTime.value == 0) {
+            if (_isWorkoutStarted.value && _remainingSetTime.value == 0) {
                 finishSet()
             }
         }

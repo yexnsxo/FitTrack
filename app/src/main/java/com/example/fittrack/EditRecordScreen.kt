@@ -129,7 +129,7 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
             val item = exercises.value.firstOrNull { it.rowId == rowId } ?: return@launch
             val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
             val updatedCalories = if (baseExercise != null && item.isCompleted) {
-                if (item.duration == null) {
+                if (item.duration.isNullOrEmpty()) {
                     (baseExercise.calories * (totalReps / 10.0)).roundToInt()
                 } else {
                     item.calories
@@ -153,7 +153,8 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
         viewModelScope.launch {
             val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
             val kcal = if (base != null) calcCalories(base, sets, null, minutes) else item.calories
-            repo.updateTodayAmounts(item.rowId, sets, minutes, kcal)
+            val durationString = List(sets) { minutes }.joinToString(",")
+            repo.updateTodayAmounts(item.rowId, sets, durationString, kcal)
         }
     }
 
@@ -164,7 +165,7 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
             val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
 
             val updatedCalories = if (baseExercise != null) {
-                if (item.duration == null) {
+                if (item.duration.isNullOrEmpty()) {
                     item.calories
                 } else {
                     val actualMin = totalSec / 60.0

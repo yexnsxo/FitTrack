@@ -63,7 +63,7 @@ class TimerViewModel : ViewModel() {
     fun initWorkout(
         rowId: Long,
         name: String,
-        target: Int,
+        target: String, // reps에서는 횟수, time에서는 duration
         type: String,
         targetSets: Int,
         setReps: String,

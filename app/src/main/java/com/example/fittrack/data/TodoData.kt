@@ -41,7 +41,7 @@ data class TodayExerciseEntity(
 
     // 사용자가 선택한 목표 값
     val sets: Int = 1,
-    val duration: Int? = null, // 목표 시간(분)
+    val duration: String = "", // 세트별 목표 시간(초) (e.g., "60,60,60")
 
     // 실제 수행 결과 필드
     val actualDurationSec: Int = 0, // 실제 운동 시간(초)
@@ -96,7 +96,7 @@ interface TodayExerciseDao {
     suspend fun deleteNotToday(todayKey: String)
 
     @Query("UPDATE today_exercises SET sets = :sets, duration = :duration, calories = :calories WHERE rowId = :rowId")
-    suspend fun updateAmounts(rowId: Long, sets: Int?, duration: Int?, calories: Int)
+    suspend fun updateAmounts(rowId: Long, sets: Int?, duration: String?, calories: Int)
 
     @Query("""
         UPDATE today_exercises 
@@ -118,7 +118,7 @@ interface TodayExerciseDao {
 // 4) Database
 @Database(
     entities = [TodayExerciseEntity::class, CustomExerciseData::class],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class FitTrackDatabase : RoomDatabase() {
@@ -244,6 +244,9 @@ class TodoRepository(
         calories: Int,
         isCompleted: Boolean = false
     ) {
+        val durationString = duration?.let { d ->
+            List(sets) { d }.joinToString(",")
+        } ?: ""
         dao.insert(
             TodayExerciseEntity(
                 dateKey = dateKey,
@@ -251,7 +254,7 @@ class TodoRepository(
                 name = ex.name,
                 category = ex.category,
                 sets = sets,
-                duration = duration,
+                duration = durationString,
                 calories = calories,
                 difficulty = ex.difficulty,
                 description = ex.description,
@@ -272,7 +275,7 @@ class TodoRepository(
     suspend fun updateTodayAmounts(
         rowId: Long,
         sets: Int?,
-        duration: Int?,
+        duration: String?,
         calories: Int
     ) {
         dao.updateAmounts(rowId, sets, duration, calories)

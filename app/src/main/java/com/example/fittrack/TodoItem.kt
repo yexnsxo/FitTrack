@@ -244,7 +244,7 @@ private fun TodayRow(
                             }
                         )
 
-                        val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration != null
+                        val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration.isNotEmpty()
 
                         TimerPill(
                             actualSec = item.actualDurationSec,
@@ -255,20 +255,21 @@ private fun TodayRow(
 
                     Spacer(Modifier.height(10.dp))
 
-                    val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration != null
+                    val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration.isNotEmpty()
 
                     if (isTimeBased) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            if (item.actualDurationSec > 0) {
-                                val mins = item.actualDurationSec / 60
-                                val secs = item.actualDurationSec % 60
+                            if (item.isCompleted) {
+                                val totalGoalSeconds = item.duration.split(',').mapNotNull { it.trim().toIntOrNull() }.sum()
+                                val hours = totalGoalSeconds / 60
+                                val mins = totalGoalSeconds % 60
                                 val timeDisplay = when {
-                                    mins > 0 && secs > 0 -> "${mins}분 ${secs}초"
-                                    mins > 0 -> "${mins}분"
-                                    else -> "${secs}초"
+                                    hours > 0 && mins > 0 -> "${hours}시간 ${mins}분"
+                                    hours > 0 -> "${hours}시간"
+                                    else -> "${mins}분"
                                 }
 
                                 Text(
@@ -276,12 +277,18 @@ private fun TodayRow(
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF10B981),
-                                    modifier = Modifier.clickable { if (selected) editOpen.value = true }
                                 )
                             } else {
-                                val totalGoalMinutes = item.sets * (item.duration ?: 0)
+                                val totalGoalSeconds = item.duration.split(',').mapNotNull { it.trim().toIntOrNull() }.sum()
+                                val hours = totalGoalSeconds / 60
+                                val mins = totalGoalSeconds % 60
+                                val timeDisplay = when {
+                                    hours > 0 && mins > 0 -> "${hours}시간 ${mins}분"
+                                    hours > 0 -> "${hours}시간"
+                                    else -> "${mins}분"
+                                }
                                 Text(
-                                    text = "목표: ${totalGoalMinutes}분",
+                                    text = "목표: $timeDisplay",
                                     fontSize = 15.sp,
                                     color = Color.Gray
                                 )
