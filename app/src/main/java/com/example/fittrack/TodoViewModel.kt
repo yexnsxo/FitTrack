@@ -207,7 +207,8 @@ class TodoViewModel(
                 val targetReps = if (item.repsPerSet != null) {
                     item.sets * (item.repsPerSet ?: 0)
                 } else {
-                    0
+                    // 시간 기반 운동의 경우 actualReps에 총 분(min) 저장
+                    item.sets * (item.duration ?: 0)
                 }
 
                 val estimatedSec = if (item.duration != null) {
@@ -216,11 +217,15 @@ class TodoViewModel(
                     0
                 }
 
+                // ✅ 세트별 기록 생성 (시간 기반 운동 포함)
                 val setRepsString = if (item.repsPerSet != null) {
                     List(item.sets) { item.repsPerSet.toString() }.joinToString(",")
+                } else if (item.duration != null) {
+                    List(item.sets) { item.duration.toString() }.joinToString(",")
                 } else {
                     ""
                 }
+                
                 val setWeightsString = if (item.repsPerSet != null) {
                     List(item.sets) { "" }.joinToString(",")
                 } else {

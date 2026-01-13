@@ -415,15 +415,20 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
 
 @Composable
 fun ExerciseDetailView(exercise: TodayExerciseEntity) {
-    val setReps = exercise.setReps
-        .split(",")
-        .mapNotNull { it.trim().toIntOrNull() }
+    val isTimeBased = exercise.category == "cardio" || exercise.category == "flexibility" || exercise.duration != null
+
+    val setReps = if (exercise.setReps.isNotEmpty()) {
+        exercise.setReps.split(",").mapNotNull { it.trim().toIntOrNull() }
+    } else if (isTimeBased && exercise.sets > 0) {
+        // ✅ 시간 운동인데 기록이 비어있는 경우(예: 체크박스 완료), 목표 시간을 기반으로 더미 데이터 생성
+        List(exercise.sets) { exercise.duration ?: 0 }
+    } else {
+        emptyList()
+    }
 
     val setWeights = exercise.setWeights
         .split(",")
         .mapNotNull { it.trim().toDoubleOrNull() }
-
-    val isTimeBased = exercise.category == "cardio" || exercise.category == "flexibility" || exercise.duration != null
 
     // 세트 정보가 없으면 펼쳐도 보여줄 게 없게 처리
     if (setReps.isEmpty()) return
@@ -498,4 +503,3 @@ fun MonthHeader(daysOfWeek: List<CalendarDay>, month: String) {
         }
     }
 }
-
