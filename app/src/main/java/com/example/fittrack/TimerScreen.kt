@@ -104,7 +104,7 @@ fun TimerScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xffF5F5F5)) // TodoScreen 배경색과 통일
+            .background(Color.White) // TodoScreen 배경색과 통일
     ) {
         // LazyColumn이 남은 공간을 차지하도록 weight(1f) 적용
         LazyColumn(
@@ -267,11 +267,12 @@ fun TimeModeScreen(
                     .fillMaxWidth()
                     .height(60.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                colors = ButtonDefaults.buttonColors(containerColor = Main40),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("운동 시작", style = MaterialTheme.typography.titleLarge)
+                Text("운동 시작", style = MaterialTheme.typography.titleLarge, color = Color.White)
             }
         }
 
@@ -293,11 +294,12 @@ fun TimeModeScreen(
                     .height(60.dp),
                 enabled = !isFinished,
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF28a745))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF28a745)),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("세트 완료", style = MaterialTheme.typography.titleLarge)
+                Text("세트 완료", style = MaterialTheme.typography.titleLarge, color = Color.White)
             }
 
             Button(
@@ -306,11 +308,13 @@ fun TimeModeScreen(
                     .fillMaxWidth()
                     .height(60.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (isFinished) Main40 else Color.Gray)
+                colors = ButtonDefaults.buttonColors(containerColor = if (isFinished) Main40 else Color.Gray),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Text(
                     text = if (exerciseName.isNotEmpty()) "운동 종료 및 기록" else "운동 종료",
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White
                 )
             }
         }
@@ -340,7 +344,7 @@ fun CircularTimer(time: Int, totalTime: Int) {
                 style = Stroke(width = 30f, cap = StrokeCap.Round)
             )
         }
-        Text(text = formatTime(time), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+        Text(text = formatTime(time), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = Color(0xFF111827))
     }
 }
 
@@ -388,11 +392,12 @@ fun RepsModeScreen(
                     .fillMaxWidth()
                     .height(60.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                colors = ButtonDefaults.buttonColors(containerColor = Main40),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("운동 시작", style = MaterialTheme.typography.titleLarge)
+                Text("운동 시작", style = MaterialTheme.typography.titleLarge, color = Color.White)
             }
         }
 
@@ -415,11 +420,12 @@ fun RepsModeScreen(
                     .height(60.dp),
                 enabled = !isFinished,
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF28a745))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF28a745)),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("세트 완료", style = MaterialTheme.typography.titleLarge)
+                Text("세트 완료", style = MaterialTheme.typography.titleLarge, color = Color.White)
             }
 
             Button(
@@ -428,10 +434,12 @@ fun RepsModeScreen(
                     .fillMaxWidth()
                     .height(60.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (isFinished) Main40 else Color.Gray)
+                colors = ButtonDefaults.buttonColors(containerColor = if (isFinished) Main40 else Color.Gray),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Text(text = if (exerciseName.isNotEmpty()) "운동 종료 및 기록" else "운동 종료",
-                    style = MaterialTheme.typography.titleLarge)
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White)
             }
         }
     }
@@ -472,12 +480,12 @@ fun StatCard(title: String, value: String, modifier: Modifier = Modifier, isPrim
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.labelMedium, color = Color(0xFF6B7280))
             Text(
                 value,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (isPrimary) Main40 else MaterialTheme.colorScheme.onSurface
+                color = if (isPrimary) Main40 else Color(0xFF111827)
             )
         }
     }
@@ -509,13 +517,14 @@ fun SetChecklist(
                     text = "운동 계획",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.CenterStart)
+                    modifier = Modifier.align(Alignment.CenterStart),
+                    color = Color(0xFF111827)
                 )
                 IconButton(
                     onClick = onSettingsClick,
                     modifier = Modifier.align(Alignment.CenterEnd)
                 ) {
-                    Icon(Icons.Default.Settings, contentDescription = "설정")
+                    Icon(Icons.Default.Settings, contentDescription = "설정", tint = Color(0xFF111827))
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -591,7 +600,7 @@ fun SetItem(
             if (isCompleted) {
                 Icon(Icons.Default.Check, contentDescription = "완료", tint = Color.White, modifier = Modifier.size(20.dp))
             } else {
-                Text((index + 1).toString(), color = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                Text((index + 1).toString(), color = if (isCurrent) Color.White else Color(0xFF111827), fontWeight = FontWeight.Bold)
             }
         }
 
@@ -601,7 +610,7 @@ fun SetItem(
             color = when {
                 isCompleted -> Color(0xFF1E7B3B)
                 isCurrent -> Main40
-                else -> MaterialTheme.colorScheme.onSurface
+                else -> Color(0xFF111827)
             }
         )
 
@@ -616,14 +625,14 @@ fun SetItem(
                     text = "${weight}kg",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF6B7280)
                 )
             }
             Text(
                 text = "$reps $unit",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color(0xFF6B7280)
             )
         }
     }
@@ -647,8 +656,8 @@ fun RestTimerBar(viewModel: TimerViewModel) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("휴식 중", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(formatTime(timeLeft), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text("휴식 중", style = MaterialTheme.typography.titleMedium, color = Color(0xFF111827))
+                Text(formatTime(timeLeft), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color(0xFF111827))
             }
             Button(
                 onClick = { viewModel.stopRest() },
@@ -656,7 +665,7 @@ fun RestTimerBar(viewModel: TimerViewModel) {
             ) {
                 Icon(Icons.Default.SkipNext, contentDescription = "건너뛰기")
                 Spacer(Modifier.width(4.dp))
-                Text("건너뛰기")
+                Text("건너뛰기", color = Color.White)
             }
         }
     }
@@ -727,7 +736,7 @@ fun SettingsSheet(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // 운동 방식
-                Text("운동 방식", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("운동 방식", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF111827))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     ToggleChip(
                         text = "횟수",
@@ -1058,7 +1067,7 @@ fun EditRepsDialog(
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Main40),
                             border = BorderStroke(2.dp, Main40)
                         ) {
-                            Text("남은 모든 세트에 적용", fontSize = 18.sp, color = Color(0xff050505))
+                            Text("남은 모든 세트에 적용", fontSize = 18.sp, color = Color(0xFF111827))
                         }
                     }
                     Spacer(Modifier.height(16.dp))
@@ -1076,16 +1085,16 @@ fun ConfirmUncheckDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("체크 해제") },
-        text = { Text("세트 ${setNumber}의 완료를 취소하시겠습니까? 이후 세트의 완료도 함께 취소됩니다.") },
+        title = { Text("체크 해제", color = Color(0xFF111827)) },
+        text = { Text("세트 ${setNumber}의 완료를 취소하시겠습니까? 이후 세트의 완료도 함께 취소됩니다.", color = Color(0xFF111827)) },
         confirmButton = {
             Button(
                 onClick = { onConfirm(); onDismiss() },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) { Text("체크 해제") }
+            ) { Text("체크 해제", color = Color.White) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("취소") }
+            TextButton(onClick = onDismiss) { Text("취소", color = Color(0xFF111827)) }
         }
     )
 }
