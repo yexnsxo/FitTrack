@@ -16,20 +16,6 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import kotlin.math.roundToInt
 
-enum class CategoryFilter(val key: String?, val label: String, val emoji: String) {
-    ALL(null, "전체", "🏋️"),
-    STRENGTH("strength", "근력", "💪"),
-    CARDIO("cardio", "유산소", "🏃"),
-    FLEXIBILITY("flexibility", "유연성", "🧘")
-}
-
-data class ProgressUi(
-    val completedCount: Int = 0,
-    val totalCount: Int = 0,
-    val caloriesSum: Int = 0,
-    val totalDurationSec: Int = 0
-)
-
 class TodoViewModel(
     private val repo: TodoRepository,
     private val photoDao: PhotoDao
@@ -58,21 +44,25 @@ class TodoViewModel(
 
     val filteredCatalog: StateFlow<List<Exercise>> =
         combine(catalogAll, selectedCategory) { list, cat ->
-            if (cat.key == null) list else list.filter { it.category == cat.key }
+            when {
+                cat == CategoryFilter.ALL -> list
+                cat == CategoryFilter.CUSTOM -> list.filter { it.id.startsWith("custom_") }
+                else -> list.filter { it.category == cat.key }
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val progress: StateFlow<ProgressUi> =
+    val progress: StateFlow<Progress> =
         todayList
             .map { list ->
                 val completed = list.filter { it.isCompleted }
-                ProgressUi(
+                Progress(
                     completedCount = completed.size,
                     totalCount = list.size,
                     caloriesSum = completed.sumOf { it.calories },
                     totalDurationSec = completed.sumOf { it.actualDurationSec }
                 )
             }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUi())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Progress())
 
     val isTodayPhotoSaved: StateFlow<Boolean> =
         photoDao.getAllPhotos()

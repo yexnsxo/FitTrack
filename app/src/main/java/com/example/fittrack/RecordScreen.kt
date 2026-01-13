@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.fittrack.data.TodayExerciseEntity
@@ -72,7 +74,8 @@ import java.time.format.DateTimeFormatter
 fun RecordScreen(
     modifier: Modifier = Modifier,
     innerPadding: PaddingValues = PaddingValues(0.dp),
-    viewModel: RecordViewModel
+    viewModel: RecordViewModel,
+    navController: NavController
 ) {
     val showCalendar by viewModel.showCalendar.collectAsState()
 
@@ -121,7 +124,7 @@ fun RecordScreen(
 
         Box(modifier = Modifier.weight(1f)) {
             if (showCalendar) {
-                CalendarView(viewModel = viewModel)
+                CalendarView(viewModel = viewModel, navController = navController)
             } else {
                 AllPhotosView(viewModel = viewModel)
             }
@@ -130,7 +133,7 @@ fun RecordScreen(
 }
 
 @Composable
-fun CalendarView(viewModel: RecordViewModel) {
+fun CalendarView(viewModel: RecordViewModel, navController: NavController) {
     val photos by viewModel.photosForSelectedDate.collectAsState()
     val markedDates by viewModel.markedDates.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
@@ -175,23 +178,48 @@ fun CalendarView(viewModel: RecordViewModel) {
                             color = Color.Black,
                             fontWeight = FontWeight.Bold
                         )
-                        val photo = photos.firstOrNull()
-                        if (photo != null) {
-                            OutlinedButton(
-                                onClick = { viewModel.deletePhoto(photo) },
-                                modifier = Modifier.height(34.dp),
-                                border = BorderStroke(1.dp, Color(0xFFE0E0E0)), // 회색 테두리
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "삭제",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = Color.Gray
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text("사진 삭제", color = Color.Gray, fontSize = 13.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val photo = photos.firstOrNull()
+                            if (photo != null) {
+                                OutlinedButton(
+                                    onClick = { viewModel.deletePhoto(photo) },
+                                    modifier = Modifier.height(34.dp),
+                                    border = BorderStroke(1.dp, Color(0xFFE0E0E0)), // 회색 테두리
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "삭제",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = Color.Gray
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("사진 삭제", color = Color.Gray, fontSize = 13.sp)
+                                }
+                            }
+
+                            if (exercises.isNotEmpty()) {
+                                Spacer(Modifier.width(8.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        val dateStr = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                        navController.navigate("editRecord/$dateStr")
+                                    },
+                                    modifier = Modifier.height(34.dp),
+                                    border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "편집",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = Color.Gray
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("기록 편집", color = Color.Gray, fontSize = 13.sp)
+                                }
                             }
                         }
                     }
