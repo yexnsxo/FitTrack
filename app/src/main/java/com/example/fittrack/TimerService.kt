@@ -245,11 +245,15 @@ class TimerService : Service() {
 
     fun setTotalSets(count: Int) {
         if (count > 0) {
-            _totalSets.value = count
             val currentReps = _setReps.value
-            _setReps.value = List(count) { index -> currentReps.getOrNull(index) ?: 10 }
+            val defaultTarget = currentReps.firstOrNull() ?: 10 // ✅ 기존 세트의 값을 기본값으로 사용
+            
+            _totalSets.value = count
+            _setReps.value = List(count) { index -> currentReps.getOrNull(index) ?: defaultTarget }
+            
             val currentWeights = _setWeights.value
             _setWeights.value = List(count) { index -> currentWeights.getOrNull(index) ?: 0 }
+            
             if (_currentSet.value > count) {
                 _currentSet.value = count
             }
