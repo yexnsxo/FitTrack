@@ -265,7 +265,23 @@ class TodoViewModel(
             val repsString = reps.joinToString(",")
             val weightsString = weights.joinToString(",")
             val totalReps = reps.sumOf { it.toIntOrNull() ?: 0 }
-            repo.updateSetInfo(rowId, repsString, weightsString, totalReps)
+            
+            val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
+            val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
+
+            val updatedCalories = if (baseExercise != null && item.isCompleted) {
+                if (item.repsPerSet != null) {
+                    // 근력 운동: 수정된 총 횟수(totalReps)를 기준으로 칼로리 재계산
+                    (baseExercise.calories * (totalReps / 10.0)).roundToInt()
+                } else {
+                    // 시간 기반 운동: setInfo 수정이 칼로리에 직접 영향을 주지 않는다면 기존값 유지
+                    item.calories
+                }
+            } else {
+                item.calories
+            }
+
+            repo.updateSetInfoWithCalories(rowId, repsString, weightsString, totalReps, updatedCalories)
         }
     }
 }

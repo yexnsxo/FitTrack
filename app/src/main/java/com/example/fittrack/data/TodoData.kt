@@ -111,6 +111,9 @@ interface TodayExerciseDao {
 
     @Query("UPDATE today_exercises SET setReps = :reps, setWeights = :weights, actualReps = :totalReps WHERE rowId = :rowId")
     suspend fun updateSetInfo(rowId: Long, reps: String, weights: String, totalReps: Int)
+
+    @Query("UPDATE today_exercises SET setReps = :reps, setWeights = :weights, actualReps = :totalReps, calories = :calories WHERE rowId = :rowId")
+    suspend fun updateSetInfoWithCalories(rowId: Long, reps: String, weights: String, totalReps: Int, calories: Int)
 }
 
 // 4) Database
@@ -278,5 +281,9 @@ class TodoRepository(
 
     suspend fun updateSetInfo(rowId: Long, reps: String, weights: String, totalReps: Int) {
         dao.updateSetInfo(rowId, reps, weights, totalReps)
+    }
+
+    suspend fun updateSetInfoWithCalories(rowId: Long, reps: String, weights: String, totalReps: Int, calories: Int) {
+        dao.updateSetInfoWithCalories(rowId, reps, weights, totalReps, calories)
     }
 }
