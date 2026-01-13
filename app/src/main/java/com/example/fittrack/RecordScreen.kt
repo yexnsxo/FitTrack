@@ -1,5 +1,8 @@
 package com.example.fittrack
 
+import android.R.attr.onClick
+import android.R.attr.top
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,26 +10,35 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextFieldDefaults.contentPadding
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,6 +46,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -58,7 +71,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun RecordScreen(
     modifier: Modifier = Modifier,
-    innerPadding: PaddingValues = PaddingValues(0.dp), // innerPadding 파라미터 추가
+    innerPadding: PaddingValues = PaddingValues(0.dp),
     viewModel: RecordViewModel
 ) {
     val showCalendar by viewModel.showCalendar.collectAsState()
@@ -67,7 +80,6 @@ fun RecordScreen(
         modifier = modifier
             .fillMaxSize()
             .padding(innerPadding)
-            .background(Color(0xffF5F5F5))
     ) {
         TabRow(
             selectedTabIndex = if (showCalendar) 0 else 1,
@@ -86,7 +98,7 @@ fun RecordScreen(
                     Text(
                         text = "달력",
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 20.sp
+                        fontSize = 15.sp
                     )
                 },
                 selectedContentColor = Main40,
@@ -99,7 +111,7 @@ fun RecordScreen(
                     Text(
                         text = "전체 사진",
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 20.sp
+                        fontSize = 15.sp
                     )
                 },
                 selectedContentColor = Main40,
@@ -107,7 +119,6 @@ fun RecordScreen(
             )
         }
 
-        // 컨텐츠 영역에 weight(1f)를 주어 남은 공간만 정확히 차지하게 함
         Box(modifier = Modifier.weight(1f)) {
             if (showCalendar) {
                 CalendarView(viewModel = viewModel)
@@ -127,7 +138,7 @@ fun CalendarView(viewModel: RecordViewModel) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp), // Modifier.padding 대신 contentPadding 사용
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
@@ -144,6 +155,8 @@ fun CalendarView(viewModel: RecordViewModel) {
             }
         }
 
+        item {Spacer(Modifier.height(2.dp))}
+
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -153,19 +166,32 @@ fun CalendarView(viewModel: RecordViewModel) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
                             text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-                            color = Color.Black
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold
                         )
                         val photo = photos.firstOrNull()
                         if (photo != null) {
-                            Button(onClick = { viewModel.deletePhoto(photo) }) {
-                                Text("사진 삭제")
+                            OutlinedButton(
+                                onClick = { viewModel.deletePhoto(photo) },
+                                modifier = Modifier.height(34.dp),
+                                border = BorderStroke(1.dp, Color(0xFFE0E0E0)), // 회색 테두리
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "삭제",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = Color.Gray
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("사진 삭제", color = Color.Gray, fontSize = 13.sp)
                             }
                         }
                     }
@@ -190,6 +216,7 @@ fun CalendarView(viewModel: RecordViewModel) {
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .size(imageSize)
+                                    .clip(RoundedCornerShape(12.dp))
                             )
                         }
                     }
@@ -197,6 +224,7 @@ fun CalendarView(viewModel: RecordViewModel) {
                 }
             }
         }
+        item {Spacer(Modifier.height(2.dp))}
     }
 }
 
@@ -216,7 +244,7 @@ fun AllPhotosView(viewModel: RecordViewModel) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp), // contentPadding으로 변경
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -302,7 +330,7 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
     ) {
         if (exercises.isNotEmpty()) {
             Text(
-                text = "운동 기록",
+                text = "운동 기록 💪",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -353,6 +381,7 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
                     }
 
                     if (isExpanded) {
+                        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
                         ExerciseDetailView(exercise)
                     }
                 }
@@ -362,8 +391,8 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
             }
         } else {
             Text(
-                text = "이 날은 운동 기록이 없어요.",
-                fontSize = 16.sp,
+                text = "이 날은 운동 기록이 없어요.. 🥺",
+                fontSize = 18.sp,
                 color = Color.Gray,
                 modifier = Modifier
                     .padding(vertical = 16.dp)
@@ -376,21 +405,57 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
 
 @Composable
 fun ExerciseDetailView(exercise: TodayExerciseEntity) {
-    val setReps = exercise.setReps.split(",").mapNotNull { it.trim().toIntOrNull() }
-    val setWeights = exercise.setWeights.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+    val setReps = exercise.setReps
+        .split(",")
+        .mapNotNull { it.trim().toIntOrNull() }
 
-    Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
-        setReps.forEachIndexed { setIndex, reps ->
-            val weight = setWeights.getOrNull(setIndex)
-            val setText = "세트 ${setIndex + 1}: ${reps}회"
-            val weightText = weight?.let { " / ${it}kg" } ?: ""
+    val setWeights = exercise.setWeights
+        .split(",")
+        .mapNotNull { it.trim().toDoubleOrNull() }
 
-            Text(
-                text = "$setText$weightText",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+    // 세트 정보가 없으면(예: 스트레칭) 펼쳐도 보여줄 게 없게 처리
+    if (setReps.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp, bottom = 8.dp)
+    ) {
+        setReps.forEachIndexed { idx, reps ->
+            val weight = setWeights.getOrNull(idx)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 왼쪽: "세트 1:"
+                Text(
+                    text = "세트 ${idx + 1}:",
+                    fontSize = 15.sp,
+                    color = Color(0xFF6B7280)
+                )
+
+                // 오른쪽: "24회 / 5kg" 또는 "20회"
+                val valueText = buildString {
+                    append("${reps}회")
+                    if (weight != null && weight > 0.0) {
+                        // 5.0 -> 5 처럼 보이게 하고 싶으면 아래 형식 사용
+                        val w = if (weight % 1.0 == 0.0) weight.toInt().toString() else weight.toString()
+                        append(" / ${w}kg")
+                    }
+                }
+
+                Text(
+                    text = valueText,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF111827),
+                    textAlign = TextAlign.End
+                )
+            }
         }
     }
 }
