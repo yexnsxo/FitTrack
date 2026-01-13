@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -22,19 +23,29 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -51,10 +62,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import com.example.fittrack.data.Exercise
@@ -189,60 +203,170 @@ fun TodoScreen(
         }
 
         if (showInitialDialog) {
-            AlertDialog(
-                onDismissRequest = { showInitialDialog = false },
-                title = { Text("오늘 운동 남기기") },
-                text = { Text("사진을 남기시겠습니까?") },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showInitialDialog = false
-                            showPhotoDialog = true
+            Dialog(onDismissRequest = { showInitialDialog = false }) {
+                val shape = RoundedCornerShape(26.dp)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = shape,
+                    color = Color.White
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
+                                .background(Main40)
+                                .padding(start = 18.dp, top = 16.dp, end = 8.dp, bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "오늘 운동 남기기",
+                                    color = Color.White,
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "사진을 남기시겠습니까?",
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 14.sp
+                                )
+                            }
+                            IconButton(
+                                onClick = { showInitialDialog = false },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(Icons.Filled.Close, contentDescription = "닫기", tint = Color.White)
+                            }
                         }
-                    ) {
-                        Text("사진과 함께 기록")
-                    }
-                },
-                dismissButton = {
-                    Button(
-                        onClick = {
-                            recordViewModel.addPhoto(null)
-                            showInitialDialog = false
-                            navController.navigate("record")
+
+                        Spacer(Modifier.height(20.dp))
+
+                        Column(
+                            modifier = Modifier.padding(horizontal = 18.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    showInitialDialog = false
+                                    showPhotoDialog = true
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(60.dp),
+                                shape = RoundedCornerShape(22.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                            ) {
+                                Text("사진과 함께 기록", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    recordViewModel.addPhoto(null)
+                                    showInitialDialog = false
+                                    navController.navigate("record")
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(60.dp),
+                                shape = RoundedCornerShape(22.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFF1F5F9),
+                                    contentColor = Color(0xFF475569)
+                                )
+                            ) {
+                                Text("사진 없이 기록", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+                            Spacer(Modifier.height(16.dp))
                         }
-                    ) {
-                        Text("사진 없이 기록")
                     }
                 }
-            )
+            }
         }
 
         if (showPhotoDialog) {
-            AlertDialog(
-                onDismissRequest = { showPhotoDialog = false },
-                title = { Text("사진 선택") },
-                text = { Text("사진을 촬영하거나 갤러리에서 선택하세요.") },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showPhotoDialog = false
-                            permissionLauncher.launch(Manifest.permission.CAMERA)
+            Dialog(onDismissRequest = { showPhotoDialog = false }) {
+                val shape = RoundedCornerShape(26.dp)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = shape,
+                    color = Color.White
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
+                                .background(Main40)
+                                .padding(start = 18.dp, top = 16.dp, end = 8.dp, bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "사진 선택",
+                                    color = Color.White,
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "사진을 촬영하거나 갤러리에서 선택하세요.",
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 14.sp
+                                )
+                            }
+                            IconButton(
+                                onClick = { showPhotoDialog = false },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(Icons.Filled.Close, contentDescription = "닫기", tint = Color.White)
+                            }
                         }
-                    ) {
-                        Text("카메라")
-                    }
-                },
-                dismissButton = {
-                    Button(
-                        onClick = {
-                            showPhotoDialog = false
-                            galleryLauncher.launch("image/*")
+
+                        Spacer(Modifier.height(20.dp))
+
+                        Column(
+                            modifier = Modifier.padding(horizontal = 18.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    showPhotoDialog = false
+                                    permissionLauncher.launch(Manifest.permission.CAMERA)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(60.dp),
+                                shape = RoundedCornerShape(22.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                            ) {
+                                Text("카메라", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    showPhotoDialog = false
+                                    galleryLauncher.launch("image/*")
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(60.dp),
+                                shape = RoundedCornerShape(22.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFF1F5F9),
+                                    contentColor = Color(0xFF475569)
+                                )
+                            ) {
+                                Text("갤러리", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+                            Spacer(Modifier.height(16.dp))
                         }
-                    ) {
-                        Text("갤러리")
                     }
                 }
-            )
+            }
         }
 
         pendingAddState.value?.let { pending ->
@@ -625,53 +749,179 @@ fun EditSetInfoDialog(
         })
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("${item.name} - 세트 정보 수정") },
-        text = {
-            LazyColumn {
-                items(item.sets) { i ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("Set ${i + 1}", modifier = Modifier.width(50.dp))
-                        OutlinedTextField(
-                            value = repsState.value[i],
-                            onValueChange = { newValue ->
-                                val newList = repsState.value.toMutableList()
-                                newList[i] = newValue
-                                repsState.value = newList
-                            },
-                            label = { Text("횟수") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
+    Dialog(onDismissRequest = onDismiss) {
+        val shape = RoundedCornerShape(26.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp),
+            shape = shape,
+            color = Color.White
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
+                        .background(Main40)
+                        .padding(start = 18.dp, top = 16.dp, end = 8.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = item.name,
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold
                         )
-                        OutlinedTextField(
-                            value = weightsState.value[i],
-                            onValueChange = { newValue ->
-                                val newList = weightsState.value.toMutableList()
-                                newList[i] = newValue
-                                weightsState.value = newList
-                            },
-                            label = { Text("무게(kg)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "세트 정보 수정",
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 14.sp
                         )
                     }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(Icons.Filled.Close, contentDescription = "닫기", tint = Color.White)
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Column(
+                    modifier = Modifier.padding(horizontal = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f, fill = false),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(item.sets) { i ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(18.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    "세트 ${i + 1}",
+                                    modifier = Modifier.width(45.dp),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                
+                                CompactStepperField(
+                                    value = repsState.value[i],
+                                    onValueChange = { newValue ->
+                                        val newList = repsState.value.toMutableList()
+                                        newList[i] = newValue
+                                        repsState.value = newList
+                                    },
+                                    label = "회",
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                CompactStepperField(
+                                    value = weightsState.value[i],
+                                    onValueChange = { newValue ->
+                                        val newList = weightsState.value.toMutableList()
+                                        newList[i] = newValue
+                                        weightsState.value = newList
+                                    },
+                                    label = "kg",
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Button(
+                        onClick = { onConfirm(repsState.value, weightsState.value) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp),
+                        shape = RoundedCornerShape(22.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                    ) {
+                        Text("정보 수정 완료", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Spacer(Modifier.height(16.dp))
                 }
             }
-        },
-        confirmButton = {
-            Button(onClick = { onConfirm(repsState.value, weightsState.value) }) {
-                Text("확인")
-            }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text("취소")
-            }
         }
-    )
+    }
+}
+
+@Composable
+private fun CompactStepperField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        modifier = modifier
+            .height(50.dp)
+            .clip(shape)
+            .background(Color(0xffF8F8F8))
+            .border(1.dp, Color(0xFFE7E7E7), shape)
+            .padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.weight(1f),
+            textStyle = TextStyle(
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color(0xFF111827)
+            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true
+        )
+        Text(label, fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(end = 2.dp))
+        
+        StepperButtons(
+            onUp = {
+                val current = value.toIntOrNull() ?: 0
+                onValueChange((current + 1).toString())
+            },
+            onDown = {
+                val current = value.toIntOrNull() ?: 0
+                if (current > 0) onValueChange((current - 1).toString())
+            }
+        )
+    }
+}
+
+@Composable
+private fun StepperButtons(
+    onUp: () -> Unit,
+    onDown: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .size(width = 28.dp, height = 38.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(8.dp))
+            .background(Color.White),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        IconButton(onClick = onUp, modifier = Modifier.size(18.dp)) {
+            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "증가", tint = Color(0xFF374151), modifier = Modifier.size(16.dp))
+        }
+        IconButton(onClick = onDown, modifier = Modifier.size(18.dp)) {
+            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "감소", tint = Color(0xFF374151), modifier = Modifier.size(16.dp))
+        }
+    }
 }
