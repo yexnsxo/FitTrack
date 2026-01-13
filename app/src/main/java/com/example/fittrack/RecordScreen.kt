@@ -205,19 +205,22 @@ fun CalendarView(viewModel: RecordViewModel) {
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 2)
+                            val imageSize = (LocalConfiguration.current.screenWidthDp.dp * 0.7f)
 
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(photo.uri.toUri())
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(imageSize)
-                                    .clip(RoundedCornerShape(12.dp))
-                            )
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(photo.uri.toUri())
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(imageSize)
+                                )
+                            }
                         }
                     }
                     ExerciseListView(exercises = exercises)
@@ -251,7 +254,7 @@ fun AllPhotosView(viewModel: RecordViewModel) {
             items(allPhotos) { photo ->
                 Card(
                     shape = RoundedCornerShape(8.dp),
-                    elevation = CardDefaults.cardElevation(4.dp)
+                    elevation = CardDefaults.cardElevation(6.dp)
                 ) {
                     val imageSize = (LocalConfiguration.current.screenWidthDp.dp / 3)
                     AsyncImage(
@@ -329,6 +332,7 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
             .fillMaxWidth()
     ) {
         if (exercises.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = "운동 기록 💪",
                 fontSize = 20.sp,
