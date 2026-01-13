@@ -92,21 +92,21 @@ fun EditExerciseDialog(
                         
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Box(modifier = Modifier.weight(1f)) {
-                                // ✅ 세 자릿수(300분 등)를 커버하기 위해 폰트 크기를 20.sp로 조정
-                                NumberStepperFieldStepOnly(
+                                // ✅ NumberStepperFieldEditable로 변경하여 직접 입력 가능하게 함
+                                NumberStepperFieldEditable(
                                     value = actualMin,
                                     onValueChange = { actualMinutesState.intValue = it },
-                                    min = 0, max = 300, step = 1,
+                                    min = 0, max = 300,
                                     fontSize = 20.sp 
                                 )
                             }
                             Text("분", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             Box(modifier = Modifier.weight(1f)) {
-                                // ✅ 폰트 크기를 20.sp로 조정
-                                NumberStepperFieldStepOnly(
+                                // ✅ NumberStepperFieldEditable로 변경하여 직접 입력 가능하게 함
+                                NumberStepperFieldEditable(
                                     value = actualSec,
                                     onValueChange = { actualSecondsState.intValue = it },
-                                    min = 0, max = 59, step = 1,
+                                    min = 0, max = 59,
                                     fontSize = 20.sp
                                 )
                             }
@@ -131,7 +131,7 @@ fun EditExerciseDialog(
                             NumberStepperFieldEditable(value = reps, onValueChange = { repsState.intValue = it }, min = 1, max = 200)
                         } else {
                             Text("시간 (분) *", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color(0xFF111827))
-                            NumberStepperFieldStepOnly(value = minutesGoal, onValueChange = { minutesGoalState.intValue = it }, min = 5, max = 300, step = 5)
+                            NumberStepperFieldEditable(value = minutesGoal, onValueChange = { minutesGoalState.intValue = it }, min = 1, max = 300)
                         }
 
                         Spacer(Modifier.height(8.dp))
