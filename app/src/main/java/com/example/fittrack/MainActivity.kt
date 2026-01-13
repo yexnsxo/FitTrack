@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -125,13 +127,20 @@ fun MainScreen(
         containerColor = Color(0xffFFFEF4),
         topBar = { Header() },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = Color.White) {
                 Destination.entries.forEach { destination ->
                     val currentRoute = currentDestination?.route?.substringBefore("?")
                     val selected = currentRoute == destination.route
 
                     NavigationBarItem(
                         selected = selected,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Main40, // 선택되었을 때 아이콘 색상
+                            unselectedIconColor = Color.Gray, // 선택되지 않았을 때 아이콘 색상
+                            selectedTextColor = Main40,
+                            unselectedTextColor = Color.Gray,
+                            indicatorColor = Color.White
+                        ),
                         onClick = {
                             if (currentRoute == destination.route) return@NavigationBarItem
 
@@ -178,7 +187,7 @@ fun MainScreen(
                             }
                         },
                         icon = { Icon(destination.icon, contentDescription = null) },
-                        label = { Text(destination.label) }
+                        label = { Text(destination.label, modifier = Modifier.offset(y = (-3).dp)) }
                     )
                 }
             }
