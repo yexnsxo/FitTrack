@@ -335,7 +335,6 @@ fun ExerciseListView(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -344,16 +343,17 @@ fun ExerciseListView(
                 fontWeight = FontWeight.Bold
             )
 
+            Spacer(Modifier.width(5.dp))
+
             IconButton(
                 onClick = { showAddExerciseModal = true },
                 modifier = Modifier
                     .size(32.dp)
-                    .background(Main40, CircleShape)
             ) {
                 Icon(
                     Icons.Default.Add,
                     contentDescription = "기록 추가",
-                    tint = Color.White,
+                    tint = Color.Gray,
                     modifier = Modifier.size(20.dp)
                 )
             }
