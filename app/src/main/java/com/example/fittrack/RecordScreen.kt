@@ -250,7 +250,12 @@ fun CalendarView(viewModel: RecordViewModel, navController: NavController) {
                             }
                         }
                     }
-                    ExerciseListView(exercises = exercises)
+                    ExerciseListView(
+                        exercises = exercises,
+                        onCopyToToday = { exercise ->
+                            viewModel.copyExerciseToToday(exercise)
+                        }
+                    )
                 }
             }
         }
@@ -350,7 +355,10 @@ fun RecordCalendar(
 }
 
 @Composable
-fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
+fun ExerciseListView(
+    exercises: List<TodayExerciseEntity>,
+    onCopyToToday: (TodayExerciseEntity) -> Unit
+) {
     val expandedState = remember { mutableStateMapOf<Long, Boolean>() }
 
     Column(
@@ -414,6 +422,14 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
                     if (isExpanded) {
                         HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
                         ExerciseDetailView(exercise)
+                        if (exercise.dateKey != LocalDate.now().toString()) {
+                            TextButton(
+                                onClick = { onCopyToToday(exercise) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("오늘 운동으로 추가")
+                            }
+                        }
                     }
                 }
                 if (index < exercises.size - 1) {

@@ -113,6 +113,17 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
             photoDao.delete(photo)
         }
     }
+    fun copyExerciseToToday(exercise: TodayExerciseEntity) {
+        viewModelScope.launch {
+            val newExercise = exercise.copy(
+                rowId = 0,
+                dateKey = LocalDate.now().toString(),
+                isCompleted = false,
+                actualDurationSec = 0
+            )
+            exerciseDao.insert(newExercise)
+        }
+    }
 }
 
 class RecordViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
