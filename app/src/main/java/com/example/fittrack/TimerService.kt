@@ -53,11 +53,11 @@ class TimerService : Service() {
     private val _isResting = MutableStateFlow(false)
     val isResting = _isResting.asStateFlow()
 
-    private val _totalSets = MutableStateFlow(5)
-    val totalSets = _totalSets.asStateFlow()
-
     private val _currentSet = MutableStateFlow(1)
     val currentSet = _currentSet.asStateFlow()
+
+    private val _totalSets = MutableStateFlow(5)
+    val totalSets = _totalSets.asStateFlow()
 
     private val _setReps = MutableStateFlow(List(_totalSets.value) { 10 })
     val setReps = _setReps.asStateFlow()
@@ -97,7 +97,15 @@ class TimerService : Service() {
         stopSelf()
     }
 
-    fun initWorkout(rowId: Long, name: String, target: Int, type: String, targetSets: Int) {
+    fun initWorkout(
+        rowId: Long,
+        name: String,
+        target: Int,
+        type: String,
+        targetSets: Int,
+        setReps: String,
+        setWeights: String
+    ) {
         // If a new workout is started for the same ID, just continue
         if (_targetRowId.value == rowId && _isWorkoutStarted.value) return
 
@@ -107,10 +115,34 @@ class TimerService : Service() {
         _exerciseName.value = name
         _workoutType.value = type
         _totalSets.value = targetSets.coerceAtLeast(1)
-        _setReps.value = List(targetSets) { target }
-        _setWeights.value = List(targetSets) { 0 }
+
+        val repsList = if (setReps.isNotBlank()) {
+            setReps.split(',').mapNotNull { it.trim().toIntOrNull() }
+        } else {
+            emptyList()
+        }
+
+        val weightsList = if (setWeights.isNotBlank()) {
+            setWeights.split(',').mapNotNull { it.trim().toIntOrNull() }
+        } else {
+            emptyList()
+        }
+
+        // Initialize reps for each set
+        _setReps.value = List(_totalSets.value) { i ->
+            repsList.getOrElse(i) {
+                if (type == "time") target else 10 // default for time or reps
+            }
+        }
+
+        // Initialize weights for each set
+        _setWeights.value = List(_totalSets.value) { i ->
+            weightsList.getOrElse(i) { 0 } // default weight is 0
+        }
+
         _currentSet.value = 1
     }
+
 
     fun startWorkout() {
         if (_isWorkoutStarted.value) return
