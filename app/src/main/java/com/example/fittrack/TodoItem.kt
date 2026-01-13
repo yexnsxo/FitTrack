@@ -19,14 +19,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -42,7 +47,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.fittrack.data.TodayExerciseEntity
+import com.example.fittrack.ui.theme.Main40
 import kotlin.collections.forEach
 
 fun Modifier.dashedBorder(
@@ -258,7 +265,6 @@ private fun TodayRow(
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF10B981),
-                                    modifier = Modifier.clickable { onEditSetInfo() }
                                 )
                             } else {
                                 Text(
@@ -278,22 +284,20 @@ private fun TodayRow(
                     }
                 }
 
-                if (!selected || alwaysShowActions) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     val iconBtnSize = 38.dp
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                    IconButton(
+                        onClick = { onEditSetInfo() },
+                        modifier = Modifier.size(iconBtnSize)
                     ) {
-                        IconButton(
-                            onClick = { editOpen.value = true },
-                            modifier = Modifier.size(iconBtnSize)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Edit,
-                                contentDescription = "수정",
-                                tint = Color(0xFF6B7280),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "수정",
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    if (!selected) {
                         IconButton(
                             onClick = onDelete,
                             modifier = Modifier.size(iconBtnSize)
@@ -316,18 +320,9 @@ private fun TodayRow(
             item = item,
             isCompleted = selected,
             onDismiss = { editOpen.value = false },
-            onConfirmStrength = { sets, reps ->
-                onEditStrength(sets, reps)
-                editOpen.value = false
-            },
-            onConfirmDuration = { sets, minutes ->
-                onEditDuration(sets, minutes)
-                editOpen.value = false
-            },
-            onConfirmActualTime = { totalSec ->
-                onEditActualTime(totalSec)
-                editOpen.value = false
-            }
+            onConfirmStrength = onEditStrength,
+            onConfirmDuration = onEditDuration,
+            onConfirmActualTime = onEditActualTime
         )
     }
 }

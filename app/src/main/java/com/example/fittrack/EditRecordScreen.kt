@@ -121,14 +121,41 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
         }
     }
 
-    fun updateSetInfo(rowId: Long, reps: List<String>, weights: List<String>) {
+    fun updateSetInfo(rowId: Long, sets: Int, reps: List<String>, weights: List<String>) {
         viewModelScope.launch {
             val repsString = reps.joinToString(",")
             val weightsString = weights.joinToString(",")
             val actualReps = reps.mapNotNull { it.toIntOrNull() }.sum()
-            repo.updateSetInfo(rowId, repsString, weightsString, actualReps)
+            val item = exercises.value.firstOrNull { it.rowId == rowId } ?: return@launch
+            val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
+            val updatedCalories = if (baseExercise != null && item.isCompleted) {
+                if (item.repsPerSet != null) {
+                    (baseExercise.calories * (actualReps / 10.0)).roundToInt()
+                } else {
+                    item.calories
+                }
+            } else {
+                item.calories
+            }
+            repo.updateSetInfoAndCount(rowId, sets, repsString, weightsString, actualReps, updatedCalories)
         }
     }
+    fun updateTodayRowStrength(item: TodayExerciseEntity, sets: Int, reps: Int) {
+        viewModelScope.launch {
+            val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
+            val kcal = if (base != null) calcCalories(base, sets, reps, null) else item.calories
+            repo.updateTodayAmounts(item.rowId, sets, reps, null, kcal)
+        }
+    }
+
+    fun updateTodayRowDuration(item: TodayExerciseEntity, sets: Int, minutes: Int) {
+        viewModelScope.launch {
+            val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
+            val kcal = if (base != null) calcCalories(base, sets, null, minutes) else item.calories
+            repo.updateTodayAmounts(item.rowId, sets, null, minutes, kcal)
+        }
+    }
+
 
     fun updateActualTime(rowId: Long, totalSec: Int) {
         viewModelScope.launch {
@@ -255,8 +282,12 @@ fun EditRecordScreen(
                         items = exercises,
                         onToggle = { _, _ -> },
                         onDelete = { item -> viewModel.deleteTodayRow(item.rowId) },
-                        onEditStrength = { _, _, _ -> },
-                        onEditDuration = { _, _, _ -> },
+                        onEditStrength = { item, sets, reps ->
+                            viewModel.updateTodayRowStrength(item, sets, reps)
+                        },
+                        onEditDuration = { item, sets, minutes ->
+                            viewModel.updateTodayRowDuration(item, sets, minutes)
+                        },
                         onTimerClick = { },
                         onEditActualTime = { item, totalSec -> viewModel.updateActualTime(item.rowId, totalSec) },
                         onEditSetInfo = { item -> pendingEditSet.value = item },
@@ -305,8 +336,8 @@ fun EditRecordScreen(
                 EditSetInfoDialog(
                     item = item,
                     onDismiss = { pendingEditSet.value = null },
-                    onConfirm = { reps, weights ->
-                        viewModel.updateSetInfo(item.rowId, reps, weights)
+                    onConfirm = { sets, reps, weights ->
+                        viewModel.updateSetInfo(item.rowId, sets, reps, weights)
                         pendingEditSet.value = null
                     }
                 )
