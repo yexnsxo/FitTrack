@@ -248,7 +248,7 @@ private fun TodayRow(
                         } else {
                             if (item.actualReps > 0) {
                                 Text(
-                                    text = "수행: ${item.sets}세트 (${item.actualReps}회)",
+                                    text = "수행: ${item.sets}세트 (총 ${item.actualReps}회)",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF10B981),
