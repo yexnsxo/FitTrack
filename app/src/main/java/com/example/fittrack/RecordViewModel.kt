@@ -54,6 +54,14 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         }.flatMapLatest { date ->
             date?.let {
                 exerciseDao.observeToday(it.toString())
+                    .map { exercises ->
+                        val hasIncompleteExercises = exercises.any { !it.isCompleted }
+                        if (hasIncompleteExercises) {
+                            emptyList()
+                        } else {
+                            exercises.filter { it.isCompleted }
+                        }
+                    }
             } ?: flowOf(emptyList())
         }.stateIn(
             scope = viewModelScope,
