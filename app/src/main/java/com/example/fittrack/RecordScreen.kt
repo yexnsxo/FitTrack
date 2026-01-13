@@ -1,50 +1,33 @@
 package com.example.fittrack
 
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -53,9 +36,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.fittrack.data.Exercise
 import com.example.fittrack.data.TodayExerciseEntity
 import com.example.fittrack.ui.theme.Main40
 import com.kizitonwose.calendar.compose.HorizontalCalendar
@@ -84,10 +70,13 @@ fun RecordScreen(
             selectedTabIndex = if (showCalendar) 0 else 1,
             containerColor = Color.White,
             indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    Modifier.tabIndicatorOffset(tabPositions[if (showCalendar) 0 else 1]),
-                    color = Main40
-                )
+                val index = if (showCalendar) 0 else 1
+                if (index < tabPositions.size) {
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(tabPositions[index]),
+                        color = Main40
+                    )
+                }
             }
         ) {
             Tab(
@@ -154,7 +143,7 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel) {
             }
         }
 
-        item {Spacer(Modifier.height(2.dp))}
+        item { Spacer(Modifier.height(2.dp)) }
 
         item {
             Card(
@@ -179,7 +168,7 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel) {
                             OutlinedButton(
                                 onClick = { viewModel.deletePhoto(photo) },
                                 modifier = Modifier.height(34.dp),
-                                border = BorderStroke(1.dp, Color(0xFFE0E0E0)), // 회색 테두리
+                                border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
@@ -222,11 +211,16 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel) {
                             }
                         }
                     }
-                    ExerciseListView(exercises = exercises, todoViewModel = todoViewModel)
+                    ExerciseListView(
+                        exercises = exercises,
+                        todoViewModel = todoViewModel,
+                        recordViewModel = viewModel,
+                        selectedDate = selectedDate
+                    )
                 }
             }
         }
-        item {Spacer(Modifier.height(2.dp))}
+        item { Spacer(Modifier.height(2.dp)) }
     }
 }
 
@@ -322,23 +316,50 @@ fun RecordCalendar(
 }
 
 @Composable
-fun ExerciseListView(exercises: List<TodayExerciseEntity>, todoViewModel: TodoViewModel) {
+fun ExerciseListView(
+    exercises: List<TodayExerciseEntity>,
+    todoViewModel: TodoViewModel,
+    recordViewModel: RecordViewModel,
+    selectedDate: LocalDate
+) {
     val expandedState = remember { mutableStateMapOf<Long, Boolean>() }
     var editingSetInfo by remember { mutableStateOf<TodayExerciseEntity?>(null) }
+    var showAddExerciseModal by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .padding(top = 16.dp)
             .fillMaxWidth()
     ) {
-        if (exercises.isNotEmpty()) {
-            Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 text = "운동 기록 💪",
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
+                fontWeight = FontWeight.Bold
             )
+
+            IconButton(
+                onClick = { showAddExerciseModal = true },
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(Main40, CircleShape)
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "기록 추가",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        if (exercises.isNotEmpty()) {
             exercises.forEachIndexed { index, exercise ->
                 val isExpanded = expandedState[exercise.rowId] ?: false
 
@@ -366,7 +387,6 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>, todoViewModel: TodoVi
                                 fontSize = 17.sp,
                             )
                             Spacer(Modifier.width(8.dp))
-                            // ✅ 연필 아이콘 클릭 시 세트 상세 수정 모달 오픈
                             IconButton(
                                 onClick = { editingSetInfo = exercise },
                                 modifier = Modifier.size(24.dp)
@@ -384,13 +404,9 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>, todoViewModel: TodoVi
                         val durationMinutes = exercise.actualDurationSec / 60
                         val durationSeconds = exercise.actualDurationSec % 60
 
-                        // summaryText 생성 로직
                         val summaryText = buildString {
-                            // ✅ repsPerSet이 없으면 시간 기반 운동으로 판단
                             val isTimeBased = exercise.repsPerSet == null
-
                             append("${exercise.sets}세트 (")
-
                             if (isTimeBased) {
                                 if (durationMinutes > 0 || durationSeconds > 0) {
                                     if (durationMinutes > 0) append("${durationMinutes}분 ")
@@ -437,7 +453,6 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>, todoViewModel: TodoVi
         }
     }
 
-    // ✅ 세트별 상세 정보 수정 모달 표시
     editingSetInfo?.let { item ->
         EditSetInfoDialog(
             item = item,
@@ -448,11 +463,224 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>, todoViewModel: TodoVi
             }
         )
     }
+
+    if (showAddExerciseModal) {
+        RecordAddExerciseModal(
+            dateKey = selectedDate.toString(),
+            todoViewModel = todoViewModel,
+            recordViewModel = recordViewModel,
+            onDismiss = { showAddExerciseModal = false }
+        )
+    }
+}
+
+@Composable
+fun RecordAddExerciseModal(
+    dateKey: String,
+    todoViewModel: TodoViewModel,
+    recordViewModel: RecordViewModel,
+    onDismiss: () -> Unit
+) {
+    val filteredCatalog by todoViewModel.filteredCatalog.collectAsState()
+    val selectedCategory by todoViewModel.selectedCategory.collectAsState()
+    val photos by recordViewModel.photosForSelectedDate.collectAsState()
+
+    var pendingAddExercise by remember { mutableStateOf<Exercise?>(null) }
+    var showPhotoChoiceDialog by remember { mutableStateOf(false) }
+    var showPhotoSourceDialog by remember { mutableStateOf(false) }
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
+
+    val context = LocalContext.current
+
+    val cameraLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success) {
+                imageUri?.let { recordViewModel.addPhoto(it, dateKey) }
+            }
+            onDismiss()
+        }
+
+    val galleryLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                recordViewModel.addPhoto(it, dateKey)
+            }
+            onDismiss()
+        }
+
+    val permissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                val newImageFile = createImageFile(context)
+                val newImageUri =
+                    FileProvider.getUriForFile(context, "com.example.fittrack.provider", newImageFile)
+                imageUri = newImageUri
+                cameraLauncher.launch(newImageUri)
+            }
+        }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 600.dp),
+            shape = RoundedCornerShape(26.dp),
+            color = Color.White
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("운동 기록 추가", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "닫기")
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                CategoryCard(selected = selectedCategory, onSelect = todoViewModel::selectCategory)
+                Spacer(Modifier.height(16.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    filteredCatalog.forEach { ex ->
+                        ExerciseItem(exercise = ex, onAdd = { pendingAddExercise = ex })
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        if (photos.isEmpty()) {
+                            showPhotoChoiceDialog = true
+                        } else {
+                            onDismiss()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                ) {
+                    Text("운동 추가 완료", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
+    pendingAddExercise?.let { ex ->
+        AddExerciseDialog(
+            exercise = ex,
+            onDismiss = { pendingAddExercise = null },
+            onConfirmStrength = { sets, reps ->
+                todoViewModel.addExerciseToDateWithSelection(dateKey, ex, sets, reps)
+                pendingAddExercise = null
+            },
+            onConfirmDuration = { sets, mins ->
+                todoViewModel.addExerciseToDateWithDuration(dateKey, ex, sets, mins)
+                pendingAddExercise = null
+            }
+        )
+    }
+
+    if (showPhotoChoiceDialog) {
+        Dialog(onDismissRequest = { showPhotoChoiceDialog = false }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(26.dp),
+                color = Color.White
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("오늘 운동 남기기", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("기록을 위해 사진을 남기시겠습니까?", fontSize = 14.sp, color = Color.Gray)
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        onClick = { showPhotoChoiceDialog = false; showPhotoSourceDialog = true },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                    ) {
+                        Text("사진과 함께 기록", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            recordViewModel.addPhoto(null, dateKey)
+                            showPhotoChoiceDialog = false
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFF1F5F9),
+                            contentColor = Color(0xFF475569)
+                        )
+                    ) {
+                        Text("사진 없이 기록", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showPhotoSourceDialog) {
+        Dialog(onDismissRequest = { showPhotoSourceDialog = false }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(26.dp),
+                color = Color.White
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("사진 선택", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        onClick = {
+                            showPhotoSourceDialog = false; permissionLauncher.launch(Manifest.permission.CAMERA)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Main40)
+                    ) {
+                        Text("카메라", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            showPhotoSourceDialog = false; galleryLauncher.launch("image/*")
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFF1F5F9),
+                            contentColor = Color(0xFF475569)
+                        )
+                    ) {
+                        Text("갤러리", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
 fun ExerciseDetailView(exercise: TodayExerciseEntity) {
-    // ✅ repsPerSet이 없으면 시간 기반 운동으로 판단
     val isTimeBased = exercise.repsPerSet == null
 
     val setReps = if (exercise.setReps.isNotEmpty()) {
@@ -467,7 +695,6 @@ fun ExerciseDetailView(exercise: TodayExerciseEntity) {
         .split(",")
         .map { it.trim() }
 
-    // 세트 정보가 없으면 펼쳐도 보여줄 게 없게 처리
     if (setReps.isEmpty()) return
 
     Column(
@@ -501,7 +728,9 @@ fun ExerciseDetailView(exercise: TodayExerciseEntity) {
                     } else {
                         append("${reps}회")
                         if (weight.isNotEmpty() && (weight.toDoubleOrNull() ?: 0.0) > 0.0) {
-                            val w = if (weight.toDoubleOrNull()!! % 1.0 == 0.0) weight.toDoubleOrNull()!!.toInt().toString() else weight
+                            val w =
+                                if (weight.toDoubleOrNull()!! % 1.0 == 0.0) weight.toDoubleOrNull()!!
+                                    .toInt().toString() else weight
                             append(" / ${w}${unit2}")
                         }
                     }

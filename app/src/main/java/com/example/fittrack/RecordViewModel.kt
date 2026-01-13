@@ -44,18 +44,17 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         .map { photos -> photos.filter { it.uri != "android.resource://com.example.fittrack/drawable/dumbel" } }
         .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // ✅ 수정: 사진이 있는 날짜에만 운동 목록을 보여줌 (사진 의존성 복구)
     val exercisesForSelectedDate: StateFlow<List<TodayExerciseEntity>> =
-        combine(selectedDate, photoDates) { date, photoDates ->
-            if (photoDates.contains(date)) {
-                date
-            } else {
-                null
-            }
+        combine(selectedDate, _photoDates) { date, photoDates ->
+            if (photoDates.contains(date)) date else null
         }.flatMapLatest { date ->
-            date?.let {
-                exerciseDao.observeToday(it.toString())
-                    .map { list -> list.filter { it.isCompleted } } // ✅ 완료된 운동만 필터링
-            } ?: flowOf(emptyList())
+            if (date != null) {
+                exerciseDao.observeToday(date.toString())
+                    .map { list -> list.filter { it.isCompleted } }
+            } else {
+                flowOf(emptyList())
+            }
         }.stateIn(
             scope = viewModelScope,
             started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000),
@@ -67,6 +66,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
 
 
+    // ✅ 수정: 마커는 오직 사진 데이터가 있는 날짜에만 표시
     val markedDates: StateFlow<List<LocalDate>> = photoDates
 
     init {
@@ -89,12 +89,13 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         _showCalendar.value = show
     }
 
-    fun addPhoto(uri: Uri?) {
+    // ✅ 특정 날짜를 지정하여 사진 추가
+    fun addPhoto(uri: Uri?, date: String = LocalDate.now().toString()) {
         viewModelScope.launch {
             val imageUri = uri ?: Uri.parse("android.resource://com.example.fittrack/drawable/dumbel")
             val photo = Photo(
                 uri = imageUri.toString(),
-                date = LocalDate.now().toString(),
+                date = date,
                 createdAt = System.currentTimeMillis()
             )
             photoDao.insert(photo)

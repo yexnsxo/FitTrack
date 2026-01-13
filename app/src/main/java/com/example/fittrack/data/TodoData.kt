@@ -41,7 +41,7 @@ data class TodayExerciseEntity(
     val category: String,
 
     // 사용자가 선택한 목표 값
-    var sets: Int = 1, // ✅ var로 변경 (기록에 따라 변경될 수 있음)
+    var sets: Int = 1, 
     val repsPerSet: Int? = null,
     val duration: Int? = null, // 목표 시간(분)
 
@@ -66,6 +66,9 @@ interface TodayExerciseDao {
     @Query("SELECT * FROM today_exercises WHERE dateKey = :dateKey ORDER BY rowId DESC")
     fun observeToday(dateKey: String): kotlinx.coroutines.flow.Flow<List<TodayExerciseEntity>>
 
+    @Query("SELECT * FROM today_exercises") // ✅ 추가
+    fun observeTodayAll(): kotlinx.coroutines.flow.Flow<List<TodayExerciseEntity>>
+
     @Query("SELECT DISTINCT dateKey FROM today_exercises")
     fun getAllExerciseDates(): kotlinx.coroutines.flow.Flow<List<String>>
 
@@ -75,7 +78,6 @@ interface TodayExerciseDao {
     @Query("UPDATE today_exercises SET isCompleted = :completed WHERE rowId = :rowId")
     suspend fun updateCompleted(rowId: Long, completed: Boolean)
 
-    // ✅ 타이머 완료 후 실제 기록 업데이트용 (sets도 함께 업데이트)
     @Query("""
         UPDATE today_exercises 
         SET sets = :sets, actualDurationSec = :actualSec, actualReps = :actualReps, calories = :calories, 
@@ -84,7 +86,6 @@ interface TodayExerciseDao {
     """)
     suspend fun completeExerciseRecord(rowId: Long, sets: Int, actualSec: Int, actualReps: Int, calories: Int, reps: String, weights: String)
 
-    // ✅ 체크 해제 시 기록 초기화용
     @Query("""
         UPDATE today_exercises 
         SET actualDurationSec = 0, actualReps = 0, isCompleted = 0, calories = :calories,
@@ -157,6 +158,8 @@ class TodoRepository(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
+    fun getContext() = context
+
     fun observeCustomCatalog(): Flow<List<Exercise>> =
         customDao.observeAll().map { list ->
             list.map { e ->
@@ -214,6 +217,8 @@ class TodoRepository(
     }
 
     fun observeToday(dateKey: String) = dao.observeToday(dateKey)
+    fun observeTodayAll() = dao.observeTodayAll() // ✅ 추가
+    suspend fun getTodayOnce(dateKey: String) = dao.getTodayOnce(dateKey)
 
     suspend fun completeRecord(rowId: Long, sets: Int, actualSec: Int, actualReps: Int, calories: Int, setReps: String, setWeights: String) {
         dao.completeExerciseRecord(rowId, sets, actualSec, actualReps, calories, setReps, setWeights)

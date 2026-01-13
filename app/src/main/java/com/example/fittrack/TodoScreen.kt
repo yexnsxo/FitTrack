@@ -12,21 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -41,22 +27,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.RemoveCircleOutline
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -131,8 +103,6 @@ fun TodoScreen(
                 )
                 imageUri = newImageUri
                 cameraLauncher.launch(newImageUri)
-            } else {
-                // Handle permission denial
             }
         }
 
@@ -179,7 +149,7 @@ fun TodoScreen(
                         navController.navigate("timer?rowId=${item.rowId}&name=${item.name}&target=$target&type=$type&sets=$sets")
                     },
                     onEditActualTime = { item, totalSec ->
-                        vm.updateActualTime(item.rowId, totalSec) // ✅ 콜백 연결 재확인
+                        vm.updateActualTime(item.rowId, totalSec)
                     },
                     onEditSetInfo = { item -> pendingEditSet.value = item }
                 )
@@ -208,13 +178,11 @@ fun TodoScreen(
 
         if (showInitialDialog) {
             Dialog(onDismissRequest = { showInitialDialog = false }) {
-                val shape = RoundedCornerShape(26.dp)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = shape,
+                    shape = RoundedCornerShape(26.dp),
                     color = Color.White
                 ) {
-                    val contentColor = Color.White
                     Column {
                         Row(
                             modifier = Modifier
@@ -228,14 +196,14 @@ fun TodoScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "오늘 운동 남기기",
-                                    color = contentColor,
+                                    color = Color.White,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     text = "사진을 남기시겠습니까?",
-                                    color = contentColor.copy(alpha = 0.9f),
+                                    color = Color.White.copy(alpha = 0.9f),
                                     fontSize = 14.sp
                                 )
                             }
@@ -293,13 +261,11 @@ fun TodoScreen(
 
         if (showPhotoDialog) {
             Dialog(onDismissRequest = { showPhotoDialog = false }) {
-                val shape = RoundedCornerShape(26.dp)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = shape,
+                    shape = RoundedCornerShape(26.dp),
                     color = Color.White
                 ) {
-                    val contentColor = Color.White
                     Column {
                         Row(
                             modifier = Modifier
@@ -313,14 +279,14 @@ fun TodoScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "사진 선택",
-                                    color = contentColor,
+                                    color = Color.White,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     text = "사진을 촬영하거나 갤러리에서 선택하세요.",
-                                    color = contentColor.copy(alpha = 0.9f),
+                                    color = Color.White.copy(alpha = 0.9f),
                                     fontSize = 14.sp
                                 )
                             }
@@ -759,7 +725,6 @@ fun EditSetInfoDialog(
 
     var isDeleteMode by remember { mutableStateOf(false) }
 
-    // ✅ 판단 기준을 repsPerSet 여부로 변경 (카테고리 기반 로직 제거)
     val isTimeBased = item.repsPerSet == null
     val label1 = if (isTimeBased) "분" else "회"
     val label2 = if (isTimeBased) "km" else "kg"

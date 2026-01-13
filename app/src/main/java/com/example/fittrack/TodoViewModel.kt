@@ -77,17 +77,8 @@ class TodoViewModel(
     val isTodayPhotoSaved: StateFlow<Boolean> =
         photoDao.getAllPhotos()
             .map { photos ->
-                val cal = Calendar.getInstance()
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                val startOfDay = cal.timeInMillis
-
-                cal.add(Calendar.DAY_OF_YEAR, 1)
-                val endOfDay = cal.timeInMillis
-
-                photos.any { it.createdAt in startOfDay until endOfDay }
+                // ✅ 타임스탬프 계산 대신 저장된 날짜 문자열(date)로 직접 비교하여 정확성 향상
+                photos.any { it.date == todayKey }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -112,6 +103,55 @@ class TodoViewModel(
     fun deleteCustomExercise(ex: Exercise) {
         viewModelScope.launch {
             repo.deleteCustomExercise(ex.id)
+        }
+    }
+
+    fun addExerciseToDateWithSelection(dateKey: String, ex: Exercise, sets: Int, repsPerSet: Int) {
+        viewModelScope.launch {
+            val calories = calcCalories(pending = ex, sets = sets, repsPerSet = repsPerSet, durationMin = null)
+            val repsString = List(sets) { repsPerSet.toString() }.joinToString(",")
+            val totalReps = sets * repsPerSet
+            
+            val item = TodayExerciseEntity(
+                dateKey = dateKey,
+                exerciseId = ex.id,
+                name = ex.name,
+                category = ex.category,
+                sets = sets,
+                repsPerSet = repsPerSet,
+                actualReps = totalReps,
+                setReps = repsString,
+                calories = calories,
+                difficulty = ex.difficulty,
+                description = ex.description,
+                isCompleted = true
+            )
+            FitTrackDatabase.getInstance(repo.getContext()).todayExerciseDao().insert(item)
+        }
+    }
+
+    fun addExerciseToDateWithDuration(dateKey: String, ex: Exercise, sets: Int, durationMin: Int) {
+        viewModelScope.launch {
+            val calories = calcCalories(pending = ex, sets = sets, repsPerSet = null, durationMin = durationMin)
+            val repsString = List(sets) { durationMin.toString() }.joinToString(",")
+            val totalMin = sets * durationMin
+            
+            val item = TodayExerciseEntity(
+                dateKey = dateKey,
+                exerciseId = ex.id,
+                name = ex.name,
+                category = ex.category,
+                sets = sets,
+                duration = durationMin,
+                actualReps = totalMin,
+                setReps = repsString,
+                actualDurationSec = totalMin * 60,
+                calories = calories,
+                difficulty = ex.difficulty,
+                description = ex.description,
+                isCompleted = true
+            )
+            FitTrackDatabase.getInstance(repo.getContext()).todayExerciseDao().insert(item)
         }
     }
 
@@ -178,24 +218,11 @@ class TodoViewModel(
 
     fun updateActualTime(rowId: Long, totalSec: Int) {
         viewModelScope.launch {
-            val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
-            val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
-
-            val updatedCalories = if (baseExercise != null) {
-                if (item.repsPerSet != null) {
-                    item.calories
-                } else {
-                    val actualMin = totalSec / 60.0
-                    val baseMin = (baseExercise.duration ?: 5).toDouble()
-                    (baseExercise.calories * (actualMin / baseMin)).roundToInt()
-                }
-            } else {
-                item.calories
-            }
-
-            repo.completeRecord(rowId, item.sets, totalSec, item.actualReps, updatedCalories, item.setReps, item.setWeights)
+            repo.completeRecord(rowId, 1, totalSec, 0, 0, "", "") 
         }
     }
+    
+    fun observeExercisesForDate(dateKey: String) = repo.observeToday(dateKey)
 
     fun toggleCompleted(rowId: Long, checked: Boolean) {
         viewModelScope.launch {
@@ -264,19 +291,24 @@ class TodoViewModel(
         }
     }
 
+    fun updateSetInfo(rowId: Long, sets: Int, reps: String, weights: String, totalReps: Int) {
+        viewModelScope.launch {
+            repo.updateSetInfo(rowId, sets, reps, weights, totalReps)
+        }
+    }
+
     fun updateSetInfo(rowId: Long, reps: List<String>, weights: List<String>) {
         viewModelScope.launch {
             val repsString = reps.joinToString(",")
             val weightsString = weights.joinToString(",")
             val totalReps = reps.sumOf { it.toIntOrNull() ?: 0 }
             
-            val item = todayList.value.firstOrNull { it.rowId == rowId } ?: return@launch
-            val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
+            val item = repo.getTodayOnce(todayKey).firstOrNull { it.rowId == rowId }
+            val baseExercise = catalogAll.value.firstOrNull { it.id == item?.exerciseId }
             
-            // ✅ 판단 기준을 repsPerSet 여부로 변경 (카테고리 무시)
-            val isTimeBased = item.repsPerSet == null
+            val isTimeBased = item?.repsPerSet == null
 
-            val updatedCalories = if (baseExercise != null && item.isCompleted) {
+            val updatedCalories = if (baseExercise != null && item?.isCompleted == true) {
                 if (!isTimeBased) {
                     (baseExercise.calories * (totalReps / 10.0)).roundToInt()
                 } else {
@@ -284,10 +316,10 @@ class TodoViewModel(
                     (baseExercise.calories * (totalReps.toDouble() / baseMin)).roundToInt()
                 }
             } else {
-                item.calories
+                item?.calories ?: 0
             }
 
-            val actualSec = if (isTimeBased) totalReps * 60 else item.actualDurationSec
+            val actualSec = if (isTimeBased) totalReps * 60 else item?.actualDurationSec ?: 0
 
             repo.updateSetInfoFull(rowId, reps.size, repsString, weightsString, totalReps, updatedCalories, actualSec)
         }
