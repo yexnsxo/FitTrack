@@ -1,7 +1,5 @@
 package com.example.fittrack
 
-import android.R.attr.onClick
-import android.R.attr.top
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,19 +24,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextFieldDefaults.contentPadding
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,7 +41,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -366,15 +360,27 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
                         val durationMinutes = exercise.actualDurationSec / 60
                         val durationSeconds = exercise.actualDurationSec % 60
 
+                        // ✅ summaryText 생성 로직
                         val summaryText = buildString {
-                            if (totalReps > 0) {
-                                append("총 ${totalReps}회")
+                            val isTimeBased = exercise.category == "cardio" || exercise.category == "flexibility" || exercise.duration != null
+
+                            append("${exercise.sets}세트 (")
+
+                            if (isTimeBased) {
+                                if (durationMinutes > 0 || durationSeconds > 0) {
+                                    if (durationMinutes > 0) append("${durationMinutes}분 ")
+                                    if (durationSeconds > 0) append("${durationSeconds}초")
+                                } else {
+                                    append("0초")
+                                }
+                            } else {
+                                if (totalReps > 0) {
+                                    append("총 ${totalReps}회")
+                                } else {
+                                    append("0회")
+                                }
                             }
-                            if (durationMinutes > 0 || durationSeconds > 0) {
-                                if (isNotEmpty()) append(", ")
-                                if(durationMinutes > 0) append("${durationMinutes}분 ")
-                                append("${durationSeconds}초")
-                            }
+                            append(")")
                         }
 
                         Text(
@@ -417,7 +423,9 @@ fun ExerciseDetailView(exercise: TodayExerciseEntity) {
         .split(",")
         .mapNotNull { it.trim().toDoubleOrNull() }
 
-    // 세트 정보가 없으면(예: 스트레칭) 펼쳐도 보여줄 게 없게 처리
+    val isTimeBased = exercise.category == "cardio" || exercise.category == "flexibility" || exercise.duration != null
+
+    // 세트 정보가 없으면 펼쳐도 보여줄 게 없게 처리
     if (setReps.isEmpty()) return
 
     Column(
@@ -442,13 +450,16 @@ fun ExerciseDetailView(exercise: TodayExerciseEntity) {
                     color = Color(0xFF6B7280)
                 )
 
-                // 오른쪽: "24회 / 5kg" 또는 "20회"
+                // 오른쪽: 시간 기반이면 "분", 횟수 기반이면 "회"
                 val valueText = buildString {
-                    append("${reps}회")
-                    if (weight != null && weight > 0.0) {
-                        // 5.0 -> 5 처럼 보이게 하고 싶으면 아래 형식 사용
-                        val w = if (weight % 1.0 == 0.0) weight.toInt().toString() else weight.toString()
-                        append(" / ${w}kg")
+                    if (isTimeBased) {
+                        append("${reps}분")
+                    } else {
+                        append("${reps}회")
+                        if (weight != null && weight > 0.0) {
+                            val w = if (weight % 1.0 == 0.0) weight.toInt().toString() else weight.toString()
+                            append(" / ${w}kg")
+                        }
                     }
                 }
 
@@ -487,3 +498,4 @@ fun MonthHeader(daysOfWeek: List<CalendarDay>, month: String) {
         }
     }
 }
+
