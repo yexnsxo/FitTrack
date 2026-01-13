@@ -17,7 +17,9 @@ captures/
 
 *.jks
 *.keystore
+keystore.properties
 
 # Kotlin compiler / IDE cache
 .kotlin/
 **/.kotlin/
+/app/release
