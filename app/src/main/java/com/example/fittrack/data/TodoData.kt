@@ -243,7 +243,8 @@ class TodoRepository(
         sets: Int = 1,
         repsPerSet: Int? = null,
         duration: Int? = null,
-        calories: Int
+        calories: Int,
+        isCompleted: Boolean = false
     ) {
         dao.insert(
             TodayExerciseEntity(
@@ -256,7 +257,8 @@ class TodoRepository(
                 duration = duration,
                 calories = calories,
                 difficulty = ex.difficulty,
-                description = ex.description
+                description = ex.description,
+                isCompleted = isCompleted
             )
         )
     }

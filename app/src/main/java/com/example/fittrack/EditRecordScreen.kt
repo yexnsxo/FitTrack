@@ -98,14 +98,14 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
     fun addExerciseToTodayWithSelection(exercise: Exercise, sets: Int, reps: Int) {
         viewModelScope.launch {
             val calories = calcCalories(pending = exercise, sets = sets, repsPerSet = reps, durationMin = null)
-            repo.addToToday(exercise, dateKey, sets, reps, null, calories)
+            repo.addToToday(exercise, dateKey, sets, reps, null, calories, isCompleted = true)
         }
     }
 
     fun addExerciseToTodayWithDuration(exercise: Exercise, sets: Int, minutes: Int) {
         viewModelScope.launch {
             val calories = calcCalories(pending = exercise, sets = sets, repsPerSet = null, durationMin = minutes)
-            repo.addToToday(exercise, dateKey, sets, null, minutes, calories)
+            repo.addToToday(exercise, dateKey, sets, null, minutes, calories, isCompleted = true)
         }
     }
 
@@ -253,13 +253,14 @@ fun EditRecordScreen(
                 item {
                     TodayListCard(
                         items = exercises,
-                        onToggle = { item, checked -> viewModel.toggleCompleted(item.rowId, checked) },
+                        onToggle = { _, _ -> },
                         onDelete = { item -> viewModel.deleteTodayRow(item.rowId) },
                         onEditStrength = { _, _, _ -> },
                         onEditDuration = { _, _, _ -> },
                         onTimerClick = { },
                         onEditActualTime = { item, totalSec -> viewModel.updateActualTime(item.rowId, totalSec) },
-                        onEditSetInfo = { item -> pendingEditSet.value = item }
+                        onEditSetInfo = { item -> pendingEditSet.value = item },
+                        alwaysShowActions = true
                     )
                 }
 

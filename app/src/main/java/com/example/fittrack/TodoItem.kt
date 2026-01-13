@@ -76,7 +76,8 @@ fun TodayListCard(
     onEditDuration: (TodayExerciseEntity, Int, Int) -> Unit,      // sets, minutes
     onTimerClick: (TodayExerciseEntity) -> Unit = {},
     onEditActualTime: (TodayExerciseEntity, Int) -> Unit = { _, _ -> }, // ✅ 실제 시간 수정용 콜백
-    onEditSetInfo: (TodayExerciseEntity) -> Unit
+    onEditSetInfo: (TodayExerciseEntity) -> Unit,
+    alwaysShowActions: Boolean = false
 ) {
     Text("오늘의 운동 목록", fontWeight = FontWeight.Bold, fontSize = 20.sp)
     Spacer(Modifier.height(8.dp))
@@ -134,7 +135,8 @@ fun TodayListCard(
                 onEditDuration = { sets, minutes -> onEditDuration(item, sets, minutes) },
                 onTimerClick = { onTimerClick(item) },
                 onEditActualTime = { totalSec -> onEditActualTime(item, totalSec) },
-                onEditSetInfo = { onEditSetInfo(item) }
+                onEditSetInfo = { onEditSetInfo(item) },
+                alwaysShowActions = alwaysShowActions
             )
         }
     }
@@ -149,7 +151,8 @@ private fun TodayRow(
     onEditDuration: (sets: Int, minutes: Int) -> Unit,
     onTimerClick: () -> Unit,
     onEditActualTime: (Int) -> Unit,
-    onEditSetInfo: () -> Unit
+    onEditSetInfo: () -> Unit,
+    alwaysShowActions: Boolean
 ) {
     val selected = item.isCompleted
     val editOpen = remember { mutableStateOf(false) }
@@ -171,7 +174,10 @@ private fun TodayRow(
                 .padding(start = 18.dp, top = 18.dp, end = 8.dp, bottom = 18.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CircleCheck(checked = selected, onClick = { onToggle(!selected) })
+                CircleCheck(
+                    checked = if (alwaysShowActions) true else selected,
+                    onClick = { if (!alwaysShowActions) onToggle(!selected) }
+                )
                 Spacer(Modifier.width(14.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
@@ -272,7 +278,7 @@ private fun TodayRow(
                     }
                 }
 
-                if (!selected) {
+                if (!selected || alwaysShowActions) {
                     val iconBtnSize = 38.dp
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
