@@ -36,6 +36,7 @@
 
 | 분류 | 기술 |
 | --- | --- |
+| **Language** | kotlin |
 | **UI** | Jetpack Compose, Material 3 |
 | **Architecture** | MVVM (Model-View-ViewModel) |
 | **Asynchronous** | Kotlin Coroutines |
