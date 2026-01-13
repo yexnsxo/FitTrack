@@ -236,6 +236,15 @@ class TodoViewModel(
                     item.calories
                 }
                 repo.resetRecord(rowId, initialCalories)
+
+                // ✅ 모든 아이템의 완료가 해제되었는지 확인 후 사진 삭제
+                val currentList = repo.observeToday(todayKey).first()
+                if (currentList.none { it.isCompleted }) {
+                    val photos = photoDao.getPhotoForDate(todayKey).first()
+                    photos.forEach { photo ->
+                        photoDao.delete(photo)
+                    }
+                }
             }
         }
     }
