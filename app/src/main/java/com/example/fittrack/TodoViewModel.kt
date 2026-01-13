@@ -14,6 +14,7 @@ import com.example.fittrack.data.TodoRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import java.time.LocalDate
 import kotlin.math.roundToInt
 
 enum class CategoryFilter(val key: String?, val label: String, val emoji: String) {
@@ -77,7 +78,6 @@ class TodoViewModel(
     val isTodayPhotoSaved: StateFlow<Boolean> =
         photoDao.getAllPhotos()
             .map { photos ->
-                // ✅ 타임스탬프 계산 대신 저장된 날짜 문자열(date)로 직접 비교하여 정확성 향상
                 photos.any { it.date == todayKey }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -106,6 +106,29 @@ class TodoViewModel(
         }
     }
 
+    // ✅ 특정 날짜의 루틴을 오늘로 복사
+    fun copyRoutineToToday(dateKey: String) {
+        viewModelScope.launch {
+            val pastExercises = repo.getTodayOnce(dateKey)
+            pastExercises.forEach { past ->
+                val item = TodayExerciseEntity(
+                    dateKey = todayKey, // 오늘 날짜로 설정
+                    exerciseId = past.exerciseId,
+                    name = past.name,
+                    category = past.category,
+                    sets = past.sets,
+                    repsPerSet = past.repsPerSet,
+                    duration = past.duration,
+                    calories = past.calories,
+                    difficulty = past.difficulty,
+                    description = past.description,
+                    isCompleted = false // 오늘 할 일이므로 미완료 상태로 추가
+                )
+                repo.addTodayExercise(item)
+            }
+        }
+    }
+
     fun addExerciseToDateWithSelection(dateKey: String, ex: Exercise, sets: Int, repsPerSet: Int) {
         viewModelScope.launch {
             val calories = calcCalories(pending = ex, sets = sets, repsPerSet = repsPerSet, durationMin = null)
@@ -126,7 +149,7 @@ class TodoViewModel(
                 description = ex.description,
                 isCompleted = true
             )
-            FitTrackDatabase.getInstance(repo.getContext()).todayExerciseDao().insert(item)
+            repo.addTodayExercise(item)
         }
     }
 
@@ -151,7 +174,7 @@ class TodoViewModel(
                 description = ex.description,
                 isCompleted = true
             )
-            FitTrackDatabase.getInstance(repo.getContext()).todayExerciseDao().insert(item)
+            repo.addTodayExercise(item)
         }
     }
 

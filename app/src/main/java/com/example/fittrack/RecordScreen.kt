@@ -440,6 +440,17 @@ fun ExerciseListView(
                     HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
                 }
             }
+            
+            // ✅ "해당 루틴 오늘 운동으로 추가" 버튼 추가
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = { todoViewModel.copyRoutineToToday(selectedDate.toString()) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9), contentColor = Color(0xFF475569))
+            ) {
+                Text("해당 루틴 오늘 운동으로 추가", fontWeight = FontWeight.Bold)
+            }
         } else {
             Text(
                 text = "이 날은 운동 기록이 없어요.. 🥺",

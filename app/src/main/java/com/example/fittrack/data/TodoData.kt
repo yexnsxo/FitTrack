@@ -66,7 +66,7 @@ interface TodayExerciseDao {
     @Query("SELECT * FROM today_exercises WHERE dateKey = :dateKey ORDER BY rowId DESC")
     fun observeToday(dateKey: String): kotlinx.coroutines.flow.Flow<List<TodayExerciseEntity>>
 
-    @Query("SELECT * FROM today_exercises") // ✅ 추가
+    @Query("SELECT * FROM today_exercises")
     fun observeTodayAll(): kotlinx.coroutines.flow.Flow<List<TodayExerciseEntity>>
 
     @Query("SELECT DISTINCT dateKey FROM today_exercises")
@@ -217,8 +217,13 @@ class TodoRepository(
     }
 
     fun observeToday(dateKey: String) = dao.observeToday(dateKey)
-    fun observeTodayAll() = dao.observeTodayAll() // ✅ 추가
+    fun observeTodayAll() = dao.observeTodayAll() 
     suspend fun getTodayOnce(dateKey: String) = dao.getTodayOnce(dateKey)
+
+    // ✅ 추가: 엔티티 직접 추가
+    suspend fun addTodayExercise(item: TodayExerciseEntity) {
+        dao.insert(item)
+    }
 
     suspend fun completeRecord(rowId: Long, sets: Int, actualSec: Int, actualReps: Int, calories: Int, setReps: String, setWeights: String) {
         dao.completeExerciseRecord(rowId, sets, actualSec, actualReps, calories, setReps, setWeights)
