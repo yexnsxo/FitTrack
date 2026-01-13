@@ -50,6 +50,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.fittrack.ui.theme.FitTrackTheme
 import com.example.fittrack.ui.theme.Main40
+import java.time.LocalDate
 
 enum class Destination(
     val route: String,
@@ -212,7 +213,17 @@ fun MainScreen(
                 )
             }
             composable(Destination.RECORD.route) {
-                RecordScreen(viewModel = recordViewModel)
+                RecordScreen(viewModel = recordViewModel, navController = navController)
+            }
+            composable(
+                "editRecord/{date}",
+                arguments = listOf(navArgument("date") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val dateStr = backStackEntry.arguments?.getString("date")
+                if (dateStr != null) {
+                    val date = LocalDate.parse(dateStr)
+                    EditRecordScreen(date = date, navController = navController)
+                }
             }
             composable(
                 route = timerPattern,

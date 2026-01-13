@@ -19,16 +19,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,7 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.fittrack.data.TodayExerciseEntity
+import com.example.fittrack.ui.theme.Main40
 import kotlin.collections.forEach
 
 fun Modifier.dashedBorder(
@@ -72,11 +83,12 @@ fun TodayListCard(
     items: List<TodayExerciseEntity>,
     onToggle: (TodayExerciseEntity, Boolean) -> Unit,
     onDelete: (TodayExerciseEntity) -> Unit,
-    onEditStrength: (TodayExerciseEntity, Int, Int) -> Unit,     // sets, reps
+    onEditStrength: (TodayExerciseEntity, Int, String) -> Unit,     // sets, reps
     onEditDuration: (TodayExerciseEntity, Int, Int) -> Unit,      // sets, minutes
     onTimerClick: (TodayExerciseEntity) -> Unit = {},
     onEditActualTime: (TodayExerciseEntity, Int) -> Unit = { _, _ -> }, // ✅ 실제 시간 수정용 콜백
-    onEditSetInfo: (TodayExerciseEntity) -> Unit
+    onEditSetInfo: (TodayExerciseEntity) -> Unit,
+    alwaysShowActions: Boolean = false
 ) {
     Text("오늘의 운동 목록", fontWeight = FontWeight.Bold, fontSize = 20.sp)
     Spacer(Modifier.height(8.dp))
@@ -134,7 +146,8 @@ fun TodayListCard(
                 onEditDuration = { sets, minutes -> onEditDuration(item, sets, minutes) },
                 onTimerClick = { onTimerClick(item) },
                 onEditActualTime = { totalSec -> onEditActualTime(item, totalSec) },
-                onEditSetInfo = { onEditSetInfo(item) }
+                onEditSetInfo = { onEditSetInfo(item) },
+                alwaysShowActions = alwaysShowActions
             )
         }
     }
@@ -145,14 +158,39 @@ private fun TodayRow(
     item: TodayExerciseEntity,
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
-    onEditStrength: (sets: Int, reps: Int) -> Unit,
+    onEditStrength: (sets: Int, reps: String) -> Unit,
     onEditDuration: (sets: Int, minutes: Int) -> Unit,
     onTimerClick: () -> Unit,
     onEditActualTime: (Int) -> Unit,
-    onEditSetInfo: () -> Unit
+    onEditSetInfo: () -> Unit,
+    alwaysShowActions: Boolean
 ) {
     val selected = item.isCompleted
     val editOpen = remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("삭제 확인") },
+            text = { Text("이 운동을 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("삭제")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
 
     val cardShape = RoundedCornerShape(22.dp)
     val borderColor = if (selected) Color(0xFF2F6BFF) else Color(0xFFE5E7EB)
@@ -171,7 +209,10 @@ private fun TodayRow(
                 .padding(start = 18.dp, top = 18.dp, end = 8.dp, bottom = 18.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CircleCheck(checked = selected, onClick = { onToggle(!selected) })
+                CircleCheck(
+                    checked = if (alwaysShowActions) true else selected,
+                    onClick = { if (!alwaysShowActions) onToggle(!selected) }
+                )
                 Spacer(Modifier.width(14.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
@@ -214,13 +255,13 @@ private fun TodayRow(
 
                     Spacer(Modifier.height(10.dp))
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration != null
+                    val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration != null
 
-                        if (isTimeBased) {
+                    if (isTimeBased) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
                             if (item.actualDurationSec > 0) {
                                 val mins = item.actualDurationSec / 60
                                 val secs = item.actualDurationSec % 60
@@ -245,60 +286,69 @@ private fun TodayRow(
                                     color = Color.Gray
                                 )
                             }
-                        } else {
-                            if (item.actualReps > 0) {
+                            Text(
+                                text = "${item.calories} kcal",
+                                color = Color(0xFF2563EB),
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    } else { // Strength
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            if (item.isCompleted) {
+                                val totalReps = item.setReps.split(',').mapNotNull { it.trim().toIntOrNull() }.sum()
                                 Text(
-                                    text = "수행: ${item.sets}세트 (${item.actualReps}회)",
+                                    text = "수행: ${item.sets}세트 ${totalReps}회",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF10B981),
-                                    modifier = Modifier.clickable { onEditSetInfo() }
                                 )
                             } else {
+                                val totalReps = item.setReps.split(',').mapNotNull { it.trim().toIntOrNull() }.sum()
                                 Text(
-                                    text = "${item.sets}세트 ${item.repsPerSet ?: 0}회",
+                                    text = "목표: ${item.sets}세트 ${totalReps}회",
                                     fontSize = 15.sp,
-                                    color = Color.Gray
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF6B7280)
                                 )
                             }
+                            Text(
+                                text = "${item.calories} kcal",
+                                color = Color(0xFF2563EB),
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
-
-                        Text(
-                            text = "${item.calories} kcal",
-                            color = Color(0xFF2563EB),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
                     }
                 }
 
-                if (!selected) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     val iconBtnSize = 38.dp
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                    IconButton(
+                        onClick = { onEditSetInfo() },
+                        modifier = Modifier.size(iconBtnSize)
                     ) {
-                        IconButton(
-                            onClick = { editOpen.value = true },
-                            modifier = Modifier.size(iconBtnSize)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Edit,
-                                contentDescription = "수정",
-                                tint = Color(0xFF6B7280),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        IconButton(
-                            onClick = onDelete,
-                            modifier = Modifier.size(iconBtnSize)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.DeleteOutline,
-                                contentDescription = "삭제",
-                                tint = Color(0xFF6B7280),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "수정",
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.size(iconBtnSize)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DeleteOutline,
+                            contentDescription = "삭제",
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                 }
             }
@@ -310,18 +360,9 @@ private fun TodayRow(
             item = item,
             isCompleted = selected,
             onDismiss = { editOpen.value = false },
-            onConfirmStrength = { sets, reps ->
-                onEditStrength(sets, reps)
-                editOpen.value = false
-            },
-            onConfirmDuration = { sets, minutes ->
-                onEditDuration(sets, minutes)
-                editOpen.value = false
-            },
-            onConfirmActualTime = { totalSec ->
-                onEditActualTime(totalSec)
-                editOpen.value = false
-            }
+            onConfirmStrength = onEditStrength,
+            onConfirmDuration = onEditDuration,
+            onConfirmActualTime = onEditActualTime
         )
     }
 }

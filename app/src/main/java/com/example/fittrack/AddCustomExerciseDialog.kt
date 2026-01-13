@@ -54,7 +54,7 @@ fun AddCustomExerciseDialog(
     val difficultyState = remember { mutableStateOf(initialExercise?.difficulty ?: "beginner") }
 
     val setsState = remember { mutableIntStateOf(initialExercise?.sets ?: 1) }
-    val repsState = remember { mutableIntStateOf(initialExercise?.repsPerSet ?: 10) }
+    val repsState = remember { mutableStateOf("10") }
     val durationState = remember { mutableIntStateOf(initialExercise?.duration ?: 5) }
     // ✅ 기본 칼로리를 50에서 5로 하향 조정하고, 소수점 유지하도록 수정
     val caloriesState = remember { mutableStateOf(initialExercise?.calories?.toString()?.removeSuffix(".0") ?: "5") }
@@ -211,12 +211,12 @@ fun AddCustomExerciseDialog(
                         )
 
                         if (recordMode.value == "reps") {
-                            StepperNumberField(
+                            SmallNumberField(
                                 label = "횟수",
-                                value = repsState.intValue,
-                                min = 1,
-                                max = 200,
-                                onValueChange = { repsState.intValue = it },
+                                value = repsState.value,
+                                enabled = true,
+                                onValueChange = { repsState.value = it },
+                                keyboardType = KeyboardType.Number,
                                 modifier = Modifier.weight(1f)
                             )
                         } else {
@@ -272,7 +272,6 @@ fun AddCustomExerciseDialog(
                                     sets = setsState.intValue,
 
                                     // ✅ 기록 방식에 따라 repsPerSet vs duration 저장
-                                    repsPerSet = if (recordMode.value == "reps") repsState.intValue else null,
                                     duration = if (recordMode.value == "time") durationState.intValue else null,
 
                                     calories = caloriesDouble ?: 0.0,

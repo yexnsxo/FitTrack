@@ -133,7 +133,6 @@ fun TimerScreen(
                             todoViewModel.completeWorkoutFromTimer(
                                 rowId = id,
                                 actualSec = totalTime,
-                                totalReps = viewModel.getTotalReps(),
                                 setReps = repsList,
                                 setWeights = weightsList
                             )

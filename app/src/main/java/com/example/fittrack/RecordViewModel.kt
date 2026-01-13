@@ -54,6 +54,14 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         }.flatMapLatest { date ->
             date?.let {
                 exerciseDao.observeToday(it.toString())
+                    .map { exercises ->
+                        val hasIncompleteExercises = exercises.any { !it.isCompleted }
+                        if (hasIncompleteExercises) {
+                            emptyList()
+                        } else {
+                            exercises.filter { it.isCompleted }
+                        }
+                    }
             } ?: flowOf(emptyList())
         }.stateIn(
             scope = viewModelScope,
@@ -103,6 +111,17 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     fun deletePhoto(photo: Photo) {
         viewModelScope.launch {
             photoDao.delete(photo)
+        }
+    }
+    fun copyExerciseToToday(exercise: TodayExerciseEntity) {
+        viewModelScope.launch {
+            val newExercise = exercise.copy(
+                rowId = 0,
+                dateKey = LocalDate.now().toString(),
+                isCompleted = false,
+                actualDurationSec = 0
+            )
+            exerciseDao.insert(newExercise)
         }
     }
 }
