@@ -146,10 +146,7 @@ fun MainScreen(
 
                             when (destination) {
                                 Destination.TODO -> {
-                                    // ✅ Timer(쿼리 포함)에서 Todo로 갈 때는 "navigate"가 아니라 "pop"이 안전함
                                     val popped = navController.popBackStack(Destination.TODO.route, inclusive = false)
-
-                                    // ✅ 혹시 Todo가 스택에 없으면(예: intent로 timer부터 온 경우) navigate로 보정
                                     if (!popped) {
                                         navController.navigate(Destination.TODO.route) {
                                             popUpTo(navController.graph.findStartDestination().id) {
@@ -162,7 +159,6 @@ fun MainScreen(
                                 }
 
                                 Destination.TIMER -> {
-                                    // ✅ 타이머 탭을 "직접" 눌러 들어갈 때만 초기화(원래 로직 유지)
                                     if (timerViewModel.targetRowId.value == null) {
                                         timerViewModel.clearWorkout()
                                     }
@@ -214,7 +210,8 @@ fun MainScreen(
             composable(Destination.RECORD.route) {
                 RecordScreen(
                     viewModel = recordViewModel,
-                    todoViewModel = todoViewModel
+                    todoViewModel = todoViewModel,
+                    navController = navController
                 )
             }
             composable(
@@ -243,7 +240,7 @@ fun MainScreen(
                     viewModel = timerViewModel,
                     todoViewModel = todoViewModel,
                     onFinish = {
-                        timerViewModel.clearWorkout() // ✅ 완료 후 초기화
+                        timerViewModel.clearWorkout() 
                         navController.popBackStack(Destination.TODO.route, inclusive = false)
                     }
                 )
@@ -265,10 +262,10 @@ fun Header() {
     ) {
         Column {
             androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(id = R.drawable.header_logo), // 여기에 본인이 저장한 파일 이름 입력
+                painter = androidx.compose.ui.res.painterResource(id = R.drawable.header_logo), 
                 contentDescription = "App Logo",
                 modifier = Modifier
-                    .height(60.dp) // 이미지 높이 조절
+                    .height(60.dp) 
             )
             Text(
                 text = "오늘도 득근하세요!",

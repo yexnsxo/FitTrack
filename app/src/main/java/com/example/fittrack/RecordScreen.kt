@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.fittrack.data.Exercise
@@ -57,7 +58,8 @@ fun RecordScreen(
     modifier: Modifier = Modifier,
     innerPadding: PaddingValues = PaddingValues(0.dp),
     viewModel: RecordViewModel,
-    todoViewModel: TodoViewModel
+    todoViewModel: TodoViewModel,
+    navController: NavController 
 ) {
     val showCalendar by viewModel.showCalendar.collectAsState()
 
@@ -109,7 +111,7 @@ fun RecordScreen(
 
         Box(modifier = Modifier.weight(1f)) {
             if (showCalendar) {
-                CalendarView(viewModel = viewModel, todoViewModel = todoViewModel)
+                CalendarView(viewModel = viewModel, todoViewModel = todoViewModel, navController = navController)
             } else {
                 AllPhotosView(viewModel = viewModel)
             }
@@ -118,7 +120,7 @@ fun RecordScreen(
 }
 
 @Composable
-fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel) {
+fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel, navController: NavController) {
     val photos by viewModel.photosForSelectedDate.collectAsState()
     val markedDates by viewModel.markedDates.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
@@ -215,7 +217,8 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel) {
                         exercises = exercises,
                         todoViewModel = todoViewModel,
                         recordViewModel = viewModel,
-                        selectedDate = selectedDate
+                        selectedDate = selectedDate,
+                        navController = navController
                     )
                 }
             }
@@ -320,7 +323,8 @@ fun ExerciseListView(
     exercises: List<TodayExerciseEntity>,
     todoViewModel: TodoViewModel,
     recordViewModel: RecordViewModel,
-    selectedDate: LocalDate
+    selectedDate: LocalDate,
+    navController: NavController
 ) {
     val expandedState = remember { mutableStateMapOf<Long, Boolean>() }
     var editingSetInfo by remember { mutableStateOf<TodayExerciseEntity?>(null) }
@@ -441,10 +445,18 @@ fun ExerciseListView(
                 }
             }
             
-            // ✅ "해당 루틴 오늘 운동으로 추가" 버튼 추가
             Spacer(Modifier.height(16.dp))
             Button(
-                onClick = { todoViewModel.copyRoutineToToday(selectedDate.toString()) },
+                onClick = { 
+                    todoViewModel.copyRoutineToToday(selectedDate.toString())
+                    // ✅ 네비게이션 구문 교정
+                    navController.navigate(Destination.TODO.route) {
+                        popUpTo(Destination.TODO.route) {
+                            inclusive = false
+                        }
+                        launchSingleTop = true
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9), contentColor = Color(0xFF475569))
