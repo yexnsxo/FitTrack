@@ -389,7 +389,7 @@ fun ExerciseListView(exercises: List<TodayExerciseEntity>) {
                             fontSize = 17.sp,
                         )
 
-                        val totalReps = exercise.actualReps
+                        val totalReps = exercise.setReps.split(',').sumOf { it.trim().toIntOrNull() ?: 0 }
                         val durationMinutes = exercise.actualDurationSec / 60
                         val durationSeconds = exercise.actualDurationSec % 60
 

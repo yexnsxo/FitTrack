@@ -56,7 +56,6 @@ fun ExerciseItem(
     }
 
     val amountText = when {
-        exercise.repsPerSet != null -> "세트: ${exercise.sets ?: 1} / 횟수: ${exercise.repsPerSet}"
         exercise.duration != null -> "세트: ${exercise.sets ?: 1} / 시간: ${exercise.duration}분"
         else -> "세트: ${exercise.sets ?: 1}"
     }

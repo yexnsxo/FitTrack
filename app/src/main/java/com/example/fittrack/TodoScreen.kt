@@ -170,8 +170,8 @@ fun TodoScreen(
                         vm.updateTodayRowDuration(item, sets, minutes)
                     },
                     onTimerClick = { item ->
-                        val target = item.repsPerSet ?: item.duration ?: 0
-                        val type = if (item.repsPerSet != null) "reps" else "time"
+                        val target = item.duration ?: 0
+                        val type = if (item.duration != null) "time" else "reps"
                         val sets = item.sets
                         navController.navigate("timer?rowId=${item.rowId}&name=${item.name}&target=$target&type=$type&sets=$sets")
                     },
@@ -742,7 +742,7 @@ fun EditSetInfoDialog(
     val setsState = remember(item) { mutableStateOf(item.sets) }
     val repsState = remember(item) {
         mutableStateOf(List(item.sets) { i ->
-            currentReps.getOrElse(i) { item.repsPerSet?.toString() ?: "" }
+            currentReps.getOrElse(i) { "" }
         })
     }
     val weightsState = remember(item) {
@@ -815,7 +815,7 @@ fun EditSetInfoDialog(
 
                                 setsState.value = newSize
                                 if (newSize > oldSize) {
-                                    repsState.value = repsState.value + List(newSize - oldSize) { item.repsPerSet?.toString() ?: "" }
+                                    repsState.value = repsState.value + List(newSize - oldSize) { "" }
                                     weightsState.value = weightsState.value + List(newSize - oldSize) { "" }
                                 } else if (newSize < oldSize) {
                                     repsState.value = repsState.value.take(newSize)

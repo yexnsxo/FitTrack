@@ -83,7 +83,7 @@ fun TodayListCard(
     items: List<TodayExerciseEntity>,
     onToggle: (TodayExerciseEntity, Boolean) -> Unit,
     onDelete: (TodayExerciseEntity) -> Unit,
-    onEditStrength: (TodayExerciseEntity, Int, Int) -> Unit,     // sets, reps
+    onEditStrength: (TodayExerciseEntity, Int, String) -> Unit,     // sets, reps
     onEditDuration: (TodayExerciseEntity, Int, Int) -> Unit,      // sets, minutes
     onTimerClick: (TodayExerciseEntity) -> Unit = {},
     onEditActualTime: (TodayExerciseEntity, Int) -> Unit = { _, _ -> }, // ✅ 실제 시간 수정용 콜백
@@ -158,7 +158,7 @@ private fun TodayRow(
     item: TodayExerciseEntity,
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
-    onEditStrength: (sets: Int, reps: Int) -> Unit,
+    onEditStrength: (sets: Int, reps: String) -> Unit,
     onEditDuration: (sets: Int, minutes: Int) -> Unit,
     onTimerClick: () -> Unit,
     onEditActualTime: (Int) -> Unit,
@@ -255,13 +255,13 @@ private fun TodayRow(
 
                     Spacer(Modifier.height(10.dp))
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration != null
+                    val isTimeBased = item.category == "cardio" || item.category == "flexibility" || item.duration != null
 
-                        if (isTimeBased) {
+                    if (isTimeBased) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
                             if (item.actualDurationSec > 0) {
                                 val mins = item.actualDurationSec / 60
                                 val secs = item.actualDurationSec % 60
@@ -286,29 +286,42 @@ private fun TodayRow(
                                     color = Color.Gray
                                 )
                             }
-                        } else {
-                            if (item.actualReps > 0) {
+                            Text(
+                                text = "${item.calories} kcal",
+                                color = Color(0xFF2563EB),
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    } else { // Strength
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            if (item.isCompleted) {
+                                val totalReps = item.setReps.split(',').mapNotNull { it.trim().toIntOrNull() }.sum()
                                 Text(
-                                    text = "수행: ${item.sets}세트 (${item.actualReps}회)",
+                                    text = "수행: ${item.sets}세트 ${totalReps}회",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF10B981),
                                 )
                             } else {
+                                val totalReps = item.setReps.split(',').mapNotNull { it.trim().toIntOrNull() }.sum()
                                 Text(
-                                    text = "${item.sets}세트 ${item.repsPerSet ?: 0}회",
+                                    text = "목표: ${item.sets}세트 ${totalReps}회",
                                     fontSize = 15.sp,
-                                    color = Color.Gray
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF6B7280)
                                 )
                             }
+                            Text(
+                                text = "${item.calories} kcal",
+                                color = Color(0xFF2563EB),
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
-
-                        Text(
-                            text = "${item.calories} kcal",
-                            color = Color(0xFF2563EB),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
                     }
                 }
 

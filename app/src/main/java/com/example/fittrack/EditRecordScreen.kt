@@ -95,17 +95,17 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
         _selectedCategory.value = category
     }
 
-    fun addExerciseToTodayWithSelection(exercise: Exercise, sets: Int, reps: Int) {
+    fun addExerciseToTodayWithSelection(exercise: Exercise, sets: Int, reps: String) {
         viewModelScope.launch {
-            val calories = calcCalories(pending = exercise, sets = sets, repsPerSet = reps, durationMin = null)
+            val calories = calcCalories(pending = exercise, sets = sets, setReps = reps, durationMin = null)
             repo.addToToday(exercise, dateKey, sets, reps, null, calories, isCompleted = true)
         }
     }
 
     fun addExerciseToTodayWithDuration(exercise: Exercise, sets: Int, minutes: Int) {
         viewModelScope.launch {
-            val calories = calcCalories(pending = exercise, sets = sets, repsPerSet = null, durationMin = minutes)
-            repo.addToToday(exercise, dateKey, sets, null, minutes, calories, isCompleted = true)
+            val calories = calcCalories(pending = exercise, sets = sets, setReps = null, durationMin = minutes)
+            repo.addToToday(exercise, dateKey, sets, "", minutes, calories, isCompleted = true)
         }
     }
 
@@ -125,26 +125,27 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
         viewModelScope.launch {
             val repsString = reps.joinToString(",")
             val weightsString = weights.joinToString(",")
-            val actualReps = reps.mapNotNull { it.toIntOrNull() }.sum()
+            val totalReps = reps.mapNotNull { it.toIntOrNull() }.sum()
             val item = exercises.value.firstOrNull { it.rowId == rowId } ?: return@launch
             val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
             val updatedCalories = if (baseExercise != null && item.isCompleted) {
-                if (item.repsPerSet != null) {
-                    (baseExercise.calories * (actualReps / 10.0)).roundToInt()
+                if (item.duration == null) {
+                    (baseExercise.calories * (totalReps / 10.0)).roundToInt()
                 } else {
                     item.calories
                 }
             } else {
                 item.calories
             }
-            repo.updateSetInfoAndCount(rowId, sets, repsString, weightsString, actualReps, updatedCalories)
+            repo.updateSetInfoAndCount(rowId, sets, repsString, weightsString, updatedCalories)
         }
     }
-    fun updateTodayRowStrength(item: TodayExerciseEntity, sets: Int, reps: Int) {
+    fun updateTodayRowStrength(item: TodayExerciseEntity, sets: Int, reps: String) {
         viewModelScope.launch {
             val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
             val kcal = if (base != null) calcCalories(base, sets, reps, null) else item.calories
-            repo.updateTodayAmounts(item.rowId, sets, reps, null, kcal)
+            //repo.updateTodayAmounts(item.rowId, sets, null, kcal)
+            // TODO: update setReps
         }
     }
 
@@ -152,7 +153,7 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
         viewModelScope.launch {
             val base = catalogAll.value.firstOrNull { it.id == item.exerciseId }
             val kcal = if (base != null) calcCalories(base, sets, null, minutes) else item.calories
-            repo.updateTodayAmounts(item.rowId, sets, null, minutes, kcal)
+            repo.updateTodayAmounts(item.rowId, sets, minutes, kcal)
         }
     }
 
@@ -163,7 +164,7 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
             val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
 
             val updatedCalories = if (baseExercise != null) {
-                if (item.repsPerSet != null) {
+                if (item.duration == null) {
                     item.calories
                 } else {
                     val actualMin = totalSec / 60.0
@@ -173,7 +174,7 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
             } else {
                 item.calories
             }
-            repo.completeRecord(rowId, totalSec, item.actualReps, updatedCalories, item.setReps, item.setWeights)
+            repo.completeRecord(rowId, totalSec, updatedCalories, item.setReps, item.setWeights)
         }
     }
 
@@ -189,12 +190,13 @@ class EditRecordViewModel(private val repo: TodoRepository, private val date: Lo
         }
     }
 
-    private fun calcCalories(pending: Exercise, sets: Int?, repsPerSet: Int?, durationMin: Int?): Int {
+    private fun calcCalories(pending: Exercise, sets: Int?, setReps: String?, durationMin: Int?): Int {
         val s = (sets ?: 1).toDouble()
-        return if (repsPerSet != null || (pending.category == "strength" && durationMin == null)) {
-            val baseReps = 10.0
-            val r = (repsPerSet ?: 10).toDouble()
-            (pending.calories * s * (r / baseReps)).roundToInt()
+        return if (!setReps.isNullOrEmpty()) {
+            val repsList = setReps.split(',').mapNotNull { it.trim().toIntOrNull() }
+            val totalReps = repsList.sum().toDouble()
+            val baseReps = 10.0 * repsList.size
+            (pending.calories * s * (totalReps / baseReps)).roundToInt()
         } else {
             val baseMin = (pending.duration ?: 5).toDouble()
             val m = (durationMin ?: (pending.duration ?: 5)).toDouble()
