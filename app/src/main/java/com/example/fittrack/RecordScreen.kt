@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -330,6 +332,8 @@ fun ExerciseListView(
     var editingSetInfo by remember { mutableStateOf<TodayExerciseEntity?>(null) }
     var showAddExerciseModal by remember { mutableStateOf(false) }
 
+    var exerciseToDelete by remember { mutableStateOf<TodayExerciseEntity?>(null) }
+
     Column(
         modifier = Modifier
             .padding(top = 16.dp)
@@ -391,16 +395,34 @@ fun ExerciseListView(
                                 fontSize = 17.sp,
                             )
                             Spacer(Modifier.width(8.dp))
-                            IconButton(
-                                onClick = { editingSetInfo = exercise },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "상세 기록 수정",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = Color.Gray
-                                )
+                            // ✅ 버튼들을 감싸는 Row
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { editingSetInfo = exercise },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "상세 기록 수정",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color.Gray
+                                    )
+                                }
+
+                                Spacer(Modifier.width(4.dp))
+
+                                // ✅ 삭제 버튼 추가
+                                IconButton(
+                                    onClick = { exerciseToDelete = exercise },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "기록 삭제",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color.Gray
+                                    )
+                                }
                             }
                         }
 
@@ -426,6 +448,31 @@ fun ExerciseListView(
                                 }
                             }
                             append(")")
+                        }
+                        // ✅ 삭제 확인 다이얼로그 구현
+                        exerciseToDelete?.let { exercise ->
+                            AlertDialog(
+                                onDismissRequest = { exerciseToDelete = null },
+                                title = { Text("기록 삭제", fontWeight = FontWeight.Bold) },
+                                text = { Text("'${exercise.name}' 기록을 삭제하시겠습니까?") },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            todoViewModel.deleteTodayRow(exercise.rowId)
+                                            exerciseToDelete = null
+                                        }
+                                    ) {
+                                        Text("삭제", color = Color.Red, fontWeight = FontWeight.Bold)
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { exerciseToDelete = null }) {
+                                        Text("취소")
+                                    }
+                                },
+                                shape = RoundedCornerShape(20.dp),
+                                containerColor = Color.White
+                            )
                         }
 
                         Text(
