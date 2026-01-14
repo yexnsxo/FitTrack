@@ -624,13 +624,20 @@ fun RecordAddExerciseModal(
         }
 
     val galleryLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let {
-                context.contentResolver.takePersistableUriPermission(
-                    it,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                recordViewModel.addPhoto(it, dateKey)
+                // OpenDocument로 가져온 URI는 persistable 권한 획득이 가능합니다.
+                try {
+                    context.contentResolver.takePersistableUriPermission(
+                        it,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                    recordViewModel.addPhoto(it, dateKey)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // 권한 획득 실패 시에도 일단 추가는 시도 (또는 에러 처리)
+                    recordViewModel.addPhoto(it, dateKey)
+                }
             }
             onDismiss()
         }
@@ -783,7 +790,8 @@ fun RecordAddExerciseModal(
                     Spacer(Modifier.height(12.dp))
                     Button(
                         onClick = {
-                            showPhotoSourceDialog = false; galleryLauncher.launch("image/*")
+                            showPhotoSourceDialog = false
+                            galleryLauncher.launch(arrayOf("image/*")) // OpenDocument는 배열을 인자로 받습니다.
                         },
                         modifier = Modifier
                             .fillMaxWidth()
