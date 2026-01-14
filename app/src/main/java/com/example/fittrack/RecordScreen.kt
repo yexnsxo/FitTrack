@@ -126,6 +126,8 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel, navCo
     val selectedDate by viewModel.selectedDate.collectAsState()
     val exercises by viewModel.exercisesForSelectedDate.collectAsState()
 
+    var showPhotoDeleteDialog by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -168,7 +170,7 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel, navCo
                         val photo = photos.firstOrNull()
                         if (photo != null) {
                             OutlinedButton(
-                                onClick = { viewModel.deletePhoto(photo) },
+                                onClick = { showPhotoDeleteDialog = true },
                                 modifier = Modifier.height(34.dp),
                                 border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
                                 shape = RoundedCornerShape(10.dp),
@@ -225,6 +227,41 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel, navCo
         }
         item { Spacer(Modifier.height(2.dp)) }
     }
+
+    // ✅ 사진 삭제 확인 다이얼로그 구현
+    if (showPhotoDeleteDialog) {
+        val photo = photos.firstOrNull()
+        AlertDialog(
+            onDismissRequest = { showPhotoDeleteDialog = false },
+            title = { Text("사진 삭제", fontWeight = FontWeight.Bold) },
+            text = { Text("사진을 삭제하면 전체 운동 기록이 사라집니다.\n삭제 하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        photo?.let {
+                            viewModel.deletePhoto(it) // 사진 삭제 (마커 제거)
+
+                            // 해당 날짜의 모든 운동 기록 삭제
+                            exercises.forEach { ex ->
+                                todoViewModel.deleteTodayRow(ex.rowId)
+                            }
+                        }
+                        showPhotoDeleteDialog = false
+                    }
+                ) {
+                    Text("삭제", color = Color.Red, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPhotoDeleteDialog = false }) {
+                    Text("취소")
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = Color.White
+        )
+    }
+
 }
 
 @Composable
