@@ -3,7 +3,9 @@ package com.example.fittrack
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import com.example.fittrack.data.Exercise
@@ -105,6 +108,14 @@ fun TodoScreen(
                 cameraLauncher.launch(newImageUri)
             }
         }
+
+    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            galleryLauncher.launch("image/*")
+        }
+    }
 
     val pendingAddState = remember { mutableStateOf<Exercise?>(null) }
     val showDirectAddState = remember { mutableStateOf(false) }
@@ -321,7 +332,16 @@ fun TodoScreen(
                             Button(
                                 onClick = {
                                     showPhotoDialog = false
-                                    galleryLauncher.launch("image/*")
+                                    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        Manifest.permission.READ_MEDIA_IMAGES
+                                    } else {
+                                        Manifest.permission.READ_EXTERNAL_STORAGE
+                                    }
+                                    if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) {
+                                        galleryLauncher.launch("image/*")
+                                    } else {
+                                        galleryPermissionLauncher.launch(permission)
+                                    }
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
