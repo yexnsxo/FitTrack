@@ -61,10 +61,3 @@
 | 양현민 | 고려대학교 컴퓨터학과 | 기획, <br/> Record 탭, Timer 탭, <br/> Todo <-> Record DB 연동 |
 | 이연서 | 숙명여자대학교 컴퓨터과학 전공 | 전체적인 UI/UX 디자인,<br/> Todo 탭,<br/> Todo <-> Timer DB 연동 |
 
-
-### 📚 Libraries
-- `Coil`: 이미지 로딩
-- `Kizitonwose Calendar`: 캘린더 UI 구현
-- `Kotlinx Serialization`: 데이터 직렬화
-
---
