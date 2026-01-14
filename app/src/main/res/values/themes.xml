@@ -6,4 +6,10 @@
         <!-- 상태바 색상도 통일감 있게 설정 (선택 사항) -->
         <item name="android:statusBarColor">@color/main_40</item>
     </style>
+
+    <style name="Theme.FitTrack.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/main_40</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.FitTrack</item>
+    </style>
 </resources>

@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -67,11 +68,25 @@ class MainActivity : ComponentActivity() {
 
     private var intentToProcess by mutableStateOf<Intent?>(null)
 
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intentToProcess = intent
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        timerViewModel.unbindService(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
+
         intentToProcess = intent
         enableEdgeToEdge()
         timerViewModel.bindService(this)
+
         setContent {
             FitTrackTheme {
                 MainScreen(
@@ -82,16 +97,6 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        intentToProcess = intent
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        timerViewModel.unbindService(this)
     }
 }
 
