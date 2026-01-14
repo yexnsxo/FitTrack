@@ -3,11 +3,14 @@ package com.example.fittrack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -26,9 +29,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -105,18 +111,19 @@ fun AddCustomExerciseDialog(
                 HorizontalDivider(color = Color(0xFFE5E7EB))
 
                 val focusManager = LocalFocusManager.current
-                val interaction = remember { MutableInteractionSource() }
+                val keyboardController = LocalSoftwareKeyboardController.current
+                val buttonFocusRequester = remember { FocusRequester() }
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                         .verticalScroll(scrollState)
                         .padding(horizontal = 20.dp, vertical = 18.dp)
-                        .clickable(
-                            interactionSource = interaction,
-                            indication = null   // ✅ 클릭 효과(리플) 없애기
-                        ) {
-                            focusManager.clearFocus() // ✅ 포커스 해제
+                        .pointerInput(Unit) {
+                            detectTapGestures(onTap = {
+                                focusManager.clearFocus()
+                            })
                         },
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
@@ -246,12 +253,12 @@ fun AddCustomExerciseDialog(
                     OutlinedTextField(
                         value = descState.value,
                         onValueChange = { descState.value = it },
-                        placeholder = { Text("운동에 대한 간단한 설명") },
+                        placeholder = { Text("예: 체력 증진") },
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp),
+                            .fillMaxWidth(),
                         shape = RoundedCornerShape(18.dp),
-                        colors = colors
+                        singleLine = true,
+                        colors = colors,
                     )
 
                     Spacer(Modifier.height(4.dp))
@@ -284,7 +291,9 @@ fun AddCustomExerciseDialog(
                             enabled = canSubmit,
                             modifier = Modifier
                                 .weight(if (initialExercise != null) 2f else 1f)
-                                .height(56.dp),
+                                .height(56.dp)
+                                .focusRequester(buttonFocusRequester) // 여기에 포커스를 받게 설정
+                                .focusGroup(),
                             shape = RoundedCornerShape(20.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (canSubmit) Main40 else Color(0xFFE5E7EB),
@@ -469,10 +478,7 @@ private fun SmallNumberField(
     )
 
     Column(
-        modifier = modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null
-        ) { focusRequester.requestFocus() }
+        modifier = modifier
     ) {
         Text(label, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF111827))
         Spacer(Modifier.height(8.dp))
