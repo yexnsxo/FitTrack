@@ -313,6 +313,8 @@ class TimerService : Service() {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(activityPendingIntent)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
 
         if (isFinished) {
             title = "운동 완료!"
@@ -364,7 +366,7 @@ class TimerService : Service() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
-                CHANNEL_ID, "Timer Service Channel", NotificationManager.IMPORTANCE_DEFAULT
+                CHANNEL_ID, "Timer Service Channel", NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)

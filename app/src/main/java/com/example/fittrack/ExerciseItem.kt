@@ -148,11 +148,11 @@ fun ExerciseItem(
                         fontSize = 13.sp,
                         color = Color(0xFF6B7280)
                     )
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(5.dp))
 
                     Text(
                         text = "${exercise.calories.toInt()} kcal",
-                        fontSize = 15.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = kcalBlue
                     )

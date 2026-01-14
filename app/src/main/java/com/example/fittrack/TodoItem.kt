@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -75,7 +76,7 @@ fun TodayListCard(
     onEditStrength: (TodayExerciseEntity, Int, Int) -> Unit,     // sets, reps
     onEditDuration: (TodayExerciseEntity, Int, Int) -> Unit,      // sets, minutes
     onTimerClick: (TodayExerciseEntity) -> Unit = {},
-    onEditActualTime: (TodayExerciseEntity, Int) -> Unit = { _, _ -> }, // ✅ 실제 시간 수정용 콜백
+    onEditActualTime: (TodayExerciseEntity, Int) -> Unit = { _, _ -> }, 
     onEditSetInfo: (TodayExerciseEntity) -> Unit
 ) {
     Text("오늘의 운동 목록", fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -187,7 +188,6 @@ private fun TodayRow(
                             color = Color(0xFF111827),
                             modifier = Modifier.align(Alignment.CenterVertically)
                         )
-                        Spacer(Modifier.width(1.5.dp))
                         CategoryPill(
                             emoji = when (item.category) {
                                 "strength" -> "💪"
@@ -203,7 +203,6 @@ private fun TodayRow(
                             }
                         )
 
-                        // ✅ repsPerSet이 없으면 시간 기반 운동으로 판단
                         val isTimeBased = item.repsPerSet == null
 
                         TimerPill(
@@ -219,11 +218,11 @@ private fun TodayRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // ✅ repsPerSet이 없으면 시간 기반 운동으로 판단
                         val isTimeBased = item.repsPerSet == null
 
-                        if (isTimeBased) {
-                            if (item.actualDurationSec > 0) {
+                        if (selected) {
+                            // ✅ 완료 상태일 때: 항상 "수행: " 접두어 사용
+                            if (isTimeBased) {
                                 val mins = item.actualDurationSec / 60
                                 val secs = item.actualDurationSec % 60
                                 val timeDisplay = when {
@@ -231,7 +230,6 @@ private fun TodayRow(
                                     mins > 0 -> "${mins}분"
                                     else -> "${secs}초"
                                 }
-
                                 Text(
                                     text = "수행: $timeDisplay",
                                     fontSize = 15.sp,
@@ -240,21 +238,22 @@ private fun TodayRow(
                                     modifier = Modifier.clickable { onEditSetInfo() }
                                 )
                             } else {
+                                Text(
+                                    text = "수행: ${item.sets}세트 (${item.actualReps}회)",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF10B981),
+                                    modifier = Modifier.clickable { onEditSetInfo() }
+                                )
+                            }
+                        } else {
+                            // 미완료 상태일 때: 목표 수치 표시
+                            if (isTimeBased) {
                                 val totalGoalMinutes = item.sets * (item.duration ?: 0)
                                 Text(
                                     text = "목표: ${totalGoalMinutes}분",
                                     fontSize = 15.sp,
                                     color = Color.Gray
-                                )
-                            }
-                        } else {
-                            if (item.actualReps > 0) {
-                                Text(
-                                    text = "수행: ${item.sets}세트 (총 ${item.actualReps}회)",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF10B981),
-                                    modifier = Modifier.clickable { onEditSetInfo() }
                                 )
                             } else {
                                 Text(

@@ -126,6 +126,8 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel, navCo
     val selectedDate by viewModel.selectedDate.collectAsState()
     val exercises by viewModel.exercisesForSelectedDate.collectAsState()
 
+    var showPhotoDeleteDialog by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -168,7 +170,7 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel, navCo
                         val photo = photos.firstOrNull()
                         if (photo != null) {
                             OutlinedButton(
-                                onClick = { viewModel.deletePhoto(photo) },
+                                onClick = { showPhotoDeleteDialog = true },
                                 modifier = Modifier.height(34.dp),
                                 border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
                                 shape = RoundedCornerShape(10.dp),
@@ -225,6 +227,41 @@ fun CalendarView(viewModel: RecordViewModel, todoViewModel: TodoViewModel, navCo
         }
         item { Spacer(Modifier.height(2.dp)) }
     }
+
+    // ✅ 사진 삭제 확인 다이얼로그 구현
+    if (showPhotoDeleteDialog) {
+        val photo = photos.firstOrNull()
+        AlertDialog(
+            onDismissRequest = { showPhotoDeleteDialog = false },
+            title = { Text("사진 삭제", fontWeight = FontWeight.Bold) },
+            text = { Text("사진을 삭제하면 전체 운동 기록이 사라집니다.\n삭제 하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        photo?.let {
+                            viewModel.deletePhoto(it) // 사진 삭제 (마커 제거)
+
+                            // 해당 날짜의 모든 운동 기록 삭제
+                            exercises.forEach { ex ->
+                                todoViewModel.deleteTodayRow(ex.rowId)
+                            }
+                        }
+                        showPhotoDeleteDialog = false
+                    }
+                ) {
+                    Text("삭제", color = Color.Red, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPhotoDeleteDialog = false }) {
+                    Text("취소")
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = Color.White
+        )
+    }
+
 }
 
 @Composable
@@ -329,6 +366,9 @@ fun ExerciseListView(
     val expandedState = remember { mutableStateMapOf<Long, Boolean>() }
     var editingSetInfo by remember { mutableStateOf<TodayExerciseEntity?>(null) }
     var showAddExerciseModal by remember { mutableStateOf(false) }
+    var exerciseToDelete by remember { mutableStateOf<TodayExerciseEntity?>(null) }
+    
+    val photos by recordViewModel.photosForSelectedDate.collectAsState()
 
     Column(
         modifier = Modifier
@@ -391,16 +431,33 @@ fun ExerciseListView(
                                 fontSize = 17.sp,
                             )
                             Spacer(Modifier.width(8.dp))
-                            IconButton(
-                                onClick = { editingSetInfo = exercise },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "상세 기록 수정",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = Color.Gray
-                                )
+                            
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { editingSetInfo = exercise },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "상세 기록 수정",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color.Gray
+                                    )
+                                }
+                                
+                                Spacer(Modifier.width(4.dp))
+                                
+                                IconButton(
+                                    onClick = { exerciseToDelete = exercise },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "기록 삭제",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color.Gray
+                                    )
+                                }
                             }
                         }
 
@@ -449,7 +506,6 @@ fun ExerciseListView(
             Button(
                 onClick = { 
                     todoViewModel.copyRoutineToToday(selectedDate.toString())
-                    // ✅ 네비게이션 구문 교정
                     navController.navigate(Destination.TODO.route) {
                         popUpTo(Destination.TODO.route) {
                             inclusive = false
@@ -474,6 +530,50 @@ fun ExerciseListView(
                 textAlign = TextAlign.Center
             )
         }
+    }
+
+    // ✅ 삭제 확인 다이얼로그
+    // ✅ 삭제 확인 다이얼로그 부분 수정
+    exerciseToDelete?.let { exercise ->
+        AlertDialog(
+            onDismissRequest = { exerciseToDelete = null },
+            title = { Text("기록 삭제", fontWeight = FontWeight.Bold) },
+            text = { Text("'${exercise.name}' 기록을 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // 1. 먼저 운동 기록 삭제 수행
+                        todoViewModel.deleteTodayRow(exercise.rowId)
+
+                        // 2. 현재 화면에 표시되던 운동 리스트 중 삭제될 항목을 제외한 나머지가 있는지 확인
+                        // exercises는 State이므로 삭제 명령 후 다음 리컴포지션 때 비워지겠지만,
+                        // 로직상 '마지막 남은 하나'를 지우는 상황인지 판단합니다.
+                        if (exercises.size <= 1) {
+                            // 기본 덤벨 사진 URI 정의
+                            val dumbellUri = "android.resource://com.example.fittrack/drawable/dumbel"
+                            val photo = photos.firstOrNull()
+
+                            // 3. 사진이 존재하고 그 사진이 디폴트(덤벨) 사진인 경우에만 사진 삭제
+                            // 사진이 삭제되면 캘린더의 마커(markedDates)도 자동으로 사라지게 됩니다.
+                            if (photo != null && photo.uri == dumbellUri) {
+                                recordViewModel.deletePhoto(photo)
+                            }
+                        }
+
+                        exerciseToDelete = null
+                    }
+                ) {
+                    Text("삭제", color = Color.Red, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { exerciseToDelete = null }) {
+                    Text("취소")
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = Color.White
+        )
     }
 
     editingSetInfo?.let { item ->

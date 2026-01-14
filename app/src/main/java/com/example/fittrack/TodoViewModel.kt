@@ -239,9 +239,32 @@ class TodoViewModel(
         }
     }
 
+    // ✅ 수정: 시간 수정 시 기존 데이터(세트 수, 횟수 등) 보존
     fun updateActualTime(rowId: Long, totalSec: Int) {
         viewModelScope.launch {
-            repo.completeRecord(rowId, 1, totalSec, 0, 0, "", "") 
+            // 1. 현재 DB에 저장된 운동 항목 정보 가져오기
+            val item = repo.getTodayOnce(todayKey).firstOrNull { it.rowId == rowId } ?: return@launch
+            val baseExercise = catalogAll.value.firstOrNull { it.id == item.exerciseId }
+
+            // 2. 시간 수정에 따른 칼로리 재계산 (시간 기반 운동일 경우)
+            val updatedCalories = if (baseExercise != null && item.repsPerSet == null) {
+                val actualMin = totalSec / 60.0
+                val baseMin = (baseExercise.duration ?: 5).toDouble()
+                (baseExercise.calories * (actualMin / baseMin)).roundToInt()
+            } else {
+                item.calories
+            }
+
+            // 3. 기존 데이터 유지하면서 시간과 칼로리만 업데이트
+            repo.completeRecord(
+                rowId = rowId,
+                sets = item.sets, // 기존 세트 수 유지
+                actualSec = totalSec, // 새로운 시간 반영
+                actualReps = item.actualReps, // 기존 총 횟수 유지
+                calories = updatedCalories, // 갱신된 칼로리 반영
+                setReps = item.setReps, // 기존 세트별 기록 유지
+                setWeights = item.setWeights // 기존 세트별 무게 유지
+            )
         }
     }
     
